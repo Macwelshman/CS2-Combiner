@@ -1,0 +1,57 @@
+import Foundation
+
+enum AssetNaming {
+    static func inferredAssetName(from sourceURL: URL) -> String {
+        let stem = sourceURL.deletingPathExtension().lastPathComponent
+        let suffixes = [
+            "base[ _-]*colou?r",
+            "albedo",
+            "diffuse",
+            "opacity",
+            "transparency",
+            "alpha",
+            "control[ _-]*mask[ _-]*[123]",
+            "control[ _-]*[123]",
+            "cm[ _-]*[123]",
+            "snow[ _-]*remove",
+            "metallic",
+            "metalness",
+            "clear[ _-]*coat",
+            "coat",
+            "roughness",
+            "rough",
+            "normal[ _-]*gl",
+            "open[ _-]*gl[ _-]*normal",
+            "open[ _-]*gl",
+            "normal",
+            "emissive",
+            "emission"
+        ]
+        let pattern = "(?i)[ _.-]*(?:\(suffixes.joined(separator: "|")))[ _.-]*$"
+        let inferred = stem.replacingOccurrences(
+            of: pattern,
+            with: "",
+            options: .regularExpression
+        )
+        let trimmed = inferred.trimmingCharacters(in: CharacterSet(charactersIn: " _.-"))
+        if !trimmed.isEmpty {
+            return trimmed
+        }
+
+        let parent = sourceURL.deletingLastPathComponent().lastPathComponent
+            .trimmingCharacters(in: CharacterSet(charactersIn: " ."))
+        return parent.isEmpty ? "CS2 texture" : parent
+    }
+
+    static func outputFolderName(for sourceURL: URL) -> String {
+        "\(inferredAssetName(from: sourceURL)) CS2 textures"
+    }
+
+    static func outputDirectory(baseColorURL: URL, customRoot: URL?) -> URL {
+        let root = customRoot ?? baseColorURL.deletingLastPathComponent()
+        return root.appendingPathComponent(
+            outputFolderName(for: baseColorURL),
+            isDirectory: true
+        )
+    }
+}
