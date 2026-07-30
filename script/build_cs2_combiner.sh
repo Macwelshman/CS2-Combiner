@@ -3,7 +3,7 @@ set -euo pipefail
 
 MODE="${1:-run}"
 PRODUCT_NAME="CS2TextureCombiner"
-APP_NAME="CS2 Texture Combiner"
+APP_NAME="CS2 Combiner"
 BUNDLE_ID="com.ianmaclarty.CS2TextureCombiner"
 MIN_SYSTEM_VERSION="14.0"
 BUILD_CONFIGURATION="${CS2_COMBINER_BUILD_CONFIGURATION:-debug}"
@@ -19,7 +19,7 @@ APP_MACOS="$APP_CONTENTS/MacOS"
 APP_RESOURCES="$APP_CONTENTS/Resources"
 APP_BINARY="$APP_MACOS/$PRODUCT_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
-RELEASE_ZIP="$DIST_DIR/CS2-Texture-Combiner-$VERSION-macos.zip"
+RELEASE_ZIP="$DIST_DIR/CS2-Combiner-$VERSION-macos.zip"
 
 pkill -x "$PRODUCT_NAME" >/dev/null 2>&1 || true
 
@@ -46,6 +46,9 @@ chmod +x "$APP_BINARY"
 
 if [[ -f "$ROOT_DIR/Resources/AppIcon.icns" ]]; then
   cp "$ROOT_DIR/Resources/AppIcon.icns" "$APP_RESOURCES/AppIcon.icns"
+fi
+if [[ -f "$ROOT_DIR/Resources/Icons/NormalizeGlobe.png" ]]; then
+  cp "$ROOT_DIR/Resources/Icons/NormalizeGlobe.png" "$APP_RESOURCES/NormalizeGlobe.png"
 fi
 
 cat >"$INFO_PLIST" <<PLIST

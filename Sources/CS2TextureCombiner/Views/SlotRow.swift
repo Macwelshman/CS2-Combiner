@@ -33,6 +33,24 @@ struct SlotRow: View {
 
             Spacer(minLength: 10)
 
+            if slot == .normal {
+                Toggle(AppSpelling.normalise, isOn: Binding(
+                    get: { store.normalizeNormalOnExport },
+                    set: { store.setNormalizeNormalOnExport($0) }
+                ))
+                .toggleStyle(.checkbox)
+                .disabled(input == nil)
+                .help("\(AppSpelling.normalise) only the exported Normal texture; the source map remains unchanged")
+            }
+            if slot == .opacity {
+                Toggle("Override BaseColor alpha", isOn: Binding(
+                    get: { store.opacityMapOverridesBaseColorAlpha },
+                    set: { store.setOpacityMapOverride($0) }
+                ))
+                .toggleStyle(.checkbox)
+                .disabled(input == nil)
+                .help("Use the assigned Opacity map even when BaseColor contains alpha")
+            }
             Button(input == nil ? "Assign…" : "Replace…") {
                 store.chooseReplacement(for: slot)
             }
@@ -59,4 +77,5 @@ struct SlotRow: View {
     }
 
     private var input: InputMap? { store.input(for: slot) }
+
 }

@@ -43,15 +43,9 @@ enum AssetNaming {
         return parent.isEmpty ? "CS2 texture" : parent
     }
 
-    static func outputFolderName(for sourceURL: URL) -> String {
-        "\(inferredAssetName(from: sourceURL)) CS2 textures"
-    }
-
     static func outputDirectory(baseColorURL: URL, customRoot: URL?) -> URL {
-        let root = customRoot ?? baseColorURL.deletingLastPathComponent()
-        return root.appendingPathComponent(
-            outputFolderName(for: baseColorURL),
-            isDirectory: true
-        )
+        customRoot ?? baseColorURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("CS2 Export", isDirectory: true)
     }
 }

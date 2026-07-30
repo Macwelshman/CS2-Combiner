@@ -13,9 +13,9 @@ enum MapDetector {
             (.snowRemove, ["snowremove", "snowremoval"]),
             (.baseColor, ["basecolor", "basecolour", "albedo", "diffuse"]),
             (.opacity, ["opacity", "transparency", "alpha"]),
-            (.cm1, ["controlmask1", "control1", "cm1"]),
-            (.cm2, ["controlmask2", "control2", "cm2"]),
-            (.cm3, ["controlmask3", "control3", "cm3"]),
+            (.cm1, ["controlmask1", "control1", "cm1", "colormask1", "colourmask1", "colormaskone", "colourmaskone"]),
+            (.cm2, ["controlmask2", "control2", "cm2", "colormask2", "colourmask2", "colormasktwo", "colourmasktwo"]),
+            (.cm3, ["controlmask3", "control3", "cm3", "colormask3", "colourmask3", "colormaskthree", "colourmaskthree"]),
             (.metallic, ["metallic", "metalness"]),
             (.coat, ["clearcoat", "coat"]),
             (.roughness, ["roughness", "rough"]),
@@ -52,6 +52,8 @@ enum MapDetector {
                         let component = $0.lowercased()
                         return component == "export files" ||
                             component.hasSuffix(" export files") ||
+                            component == "cs2 export" ||
+                            component.hasSuffix(" cs2 export") ||
                             component == "cs2 textures" ||
                             component.hasSuffix(" cs2 textures")
                     }

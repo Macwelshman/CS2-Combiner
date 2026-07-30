@@ -1,0 +1,289 @@
+<Window
+    x:Class="CS2Combiner.App.MainWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="CS2 Combiner"
+    Icon="avares://CS2Combiner/Assets/app-icon.png"
+    Width="780"
+    Height="900"
+    MinWidth="700"
+    MinHeight="720"
+    WindowStartupLocation="CenterScreen">
+  <Grid RowDefinitions="Auto,*,Auto">
+    <Grid
+        Grid.Row="0"
+        Margin="18"
+        DragDrop.AllowDrop="True"
+        DragDrop.DragOver="DropArea_DragOver"
+        DragDrop.Drop="DropArea_Drop">
+      <Border
+          Background="{StaticResource CS2AccentSoftBrush}"
+          BorderBrush="{StaticResource CS2AccentBrush}"
+          BorderThickness="1"
+          CornerRadius="12" />
+      <Rectangle
+          Margin="4"
+          IsHitTestVisible="False"
+          RadiusX="9"
+          RadiusY="9"
+          Stroke="{StaticResource CS2AccentBrush}"
+          StrokeDashArray="5,4"
+          StrokeThickness="1.5" />
+      <Grid Margin="17" ColumnDefinitions="Auto,*" ColumnSpacing="14">
+        <Image Width="52" Height="52" Source="avares://CS2Combiner/Assets/app-icon.png" />
+        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+          <TextBlock FontSize="17" FontWeight="SemiBold" Text="Drop maps or a whole folder" />
+          <TextBlock
+              Classes="secondary"
+              Text="Recognised filenames fill their slots; drop on a row to assign manually." />
+          <TextBlock Classes="secondary" FontSize="12" Text="{Binding Status}" TextWrapping="Wrap" />
+          <TextBlock
+              Classes="secondary"
+              FontSize="12"
+              IsVisible="{Binding HasLod2Sets}"
+              Text="{Binding Lod2Status}"
+              TextWrapping="Wrap" />
+        </StackPanel>
+      </Grid>
+    </Grid>
+
+    <ScrollViewer Grid.Row="1">
+      <StackPanel Margin="18,0,18,18" Spacing="12">
+        <Border Classes="workflow">
+          <StackPanel Spacing="12">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8">
+              <Border Width="4" Height="25" Background="{StaticResource CS2AccentBrush}" CornerRadius="2" />
+              <StackPanel Grid.Column="1" Spacing="1">
+                <TextBlock FontSize="16" FontWeight="SemiBold" Text="Main texture maps" />
+                <TextBlock Classes="secondary" FontSize="11" Text="Five packed CS2 textures" />
+              </StackPanel>
+              <Button Grid.Column="2" Click="AddMainMaps_Click" Content="Add Maps…" />
+              <Button Grid.Column="3" Click="AddFolder_Click" Content="Add Folder…" />
+              <Button
+                  Grid.Column="4"
+                  Click="ClearMain_Click"
+                  Content="Clear"
+                  IsEnabled="{Binding HasMainInputs}" />
+            </Grid>
+
+            <ItemsControl ItemsSource="{Binding MainGroups}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Classes="sectionCard" Margin="0,0,0,10">
+                    <StackPanel>
+                      <Border Classes="sectionHeader">
+                        <TextBlock FontSize="13" FontWeight="SemiBold" Text="{Binding Title}" />
+                      </Border>
+                      <ItemsControl ItemsSource="{Binding Slots}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <Border
+                                Classes="slotRow"
+                                DragDrop.AllowDrop="True"
+                                DragDrop.DragOver="MainSlot_DragOver"
+                                DragDrop.Drop="MainSlot_Drop">
+                              <Grid ColumnDefinitions="28,*,Auto,Auto,Auto" ColumnSpacing="9">
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    FontSize="18"
+                                    Foreground="{StaticResource CS2SuccessBrush}"
+                                    Text="{Binding StatusGlyph}" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                  <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
+                                    <Border
+                                        Padding="5,1"
+                                        Background="{StaticResource CS2AccentBrush}"
+                                        CornerRadius="8"
+                                        IsVisible="{Binding IsRequired}">
+                                      <TextBlock FontSize="10" Foreground="White" Text="Required" />
+                                    </Border>
+                                  </StackPanel>
+                                  <TextBlock
+                                      Classes="secondary"
+                                      FontSize="12"
+                                      HorizontalAlignment="Left"
+                                      Text="{Binding Description}"
+                                      TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <CheckBox
+                                    Grid.Column="2"
+                                    VerticalAlignment="Center"
+                                    Content="{Binding SpecialToggleLabel}"
+                                    IsChecked="{Binding SpecialToggle, Mode=TwoWay}"
+                                    IsEnabled="{Binding IsAssigned}"
+                                    IsVisible="{Binding HasSpecialToggle}" />
+                                <Button
+                                    Grid.Column="3"
+                                    Click="AssignMainSlot_Click"
+                                    Content="{Binding ActionText}" />
+                                <Button
+                                    Grid.Column="4"
+                                    Click="RemoveMainSlot_Click"
+                                    Content="×"
+                                    IsVisible="{Binding IsAssigned}" />
+                              </Grid>
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                      <Border
+                          Padding="11,8"
+                          Background="{StaticResource CS2AccentSoftBrush}"
+                          IsVisible="{Binding ShowsOpacitySource}">
+                        <TextBlock
+                            Classes="secondary"
+                            FontSize="12"
+                            FontWeight="SemiBold"
+                            Text="{Binding OpacitySourceDescription}" />
+                      </Border>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Grid ColumnDefinitions="*,Auto">
+              <Border
+                  Padding="10"
+                  Background="{StaticResource CS2CardBrush}"
+                  CornerRadius="8">
+                <TextBlock
+                    Classes="secondary"
+                    FontSize="12"
+                    Text="Main maps must be square 1024, 2048, or 4096 pixels. Textures are never resized." />
+              </Border>
+              <Button
+                  Grid.Column="1"
+                  Margin="10,0,0,0"
+                  Classes="primary"
+                  Click="ExportMain_Click"
+                  Content="Export Main"
+                  IsEnabled="{Binding CanExportMain}" />
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="workflow">
+          <StackPanel Spacing="12">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8">
+              <Border Width="4" Height="25" Background="{StaticResource CS2AccentBrush}" CornerRadius="2" />
+              <StackPanel Grid.Column="1" Spacing="1">
+                <TextBlock FontSize="16" FontWeight="SemiBold" Text="LOD2 texture maps" />
+                <TextBlock Classes="secondary" FontSize="11" Text="Explicit 512 × 512 asset sets" />
+              </StackPanel>
+              <Button Grid.Column="2" Click="AddLod2Maps_Click" Content="Add Maps…" />
+              <Button Grid.Column="3" Click="AddFolder_Click" Content="Add Folder…" />
+              <Button
+                  Grid.Column="4"
+                  Click="ClearLod2_Click"
+                  Content="Clear"
+                  IsEnabled="{Binding HasLod2Sets}" />
+            </Grid>
+
+            <TextBlock
+                Classes="secondary"
+                IsVisible="{Binding HasNoLod2Sets}"
+                Text="No LOD2 maps imported." />
+
+            <ItemsControl ItemsSource="{Binding Lod2Sets}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Classes="sectionCard" Margin="0,0,0,8">
+                    <StackPanel>
+                      <Border Classes="sectionHeader">
+                        <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
+                      </Border>
+                      <ItemsControl ItemsSource="{Binding Slots}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <Border
+                                Classes="slotRow"
+                                DragDrop.AllowDrop="True"
+                                DragDrop.DragOver="Lod2Slot_DragOver"
+                                DragDrop.Drop="Lod2Slot_Drop">
+                              <Grid ColumnDefinitions="24,*,Auto" ColumnSpacing="9">
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Foreground="{StaticResource CS2SuccessBrush}"
+                                    Text="{Binding StatusGlyph}" />
+                                <StackPanel Grid.Column="1" Spacing="2">
+                                  <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
+                                  <TextBlock
+                                      Classes="secondary"
+                                      FontSize="12"
+                                      HorizontalAlignment="Left"
+                                      Text="{Binding Description}"
+                                      TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <Button
+                                    Grid.Column="2"
+                                    Click="AssignLod2Slot_Click"
+                                    Content="{Binding ActionText}" />
+                              </Grid>
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+              <CheckBox
+                  VerticalAlignment="Center"
+                  Content="Export in the main texture folder"
+                  IsChecked="{Binding UseMainOutputForLod2, Mode=TwoWay}" />
+              <Button Grid.Column="1" Click="ChooseLod2Output_Click" Content="Choose Location…" />
+              <Button
+                  Grid.Column="2"
+                  Classes="primary"
+                  Click="ExportLod2_Click"
+                  Content="Export LOD2"
+                  IsEnabled="{Binding CanExportLod2}" />
+            </Grid>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+
+    <Border
+        Grid.Row="2"
+        Padding="18,14"
+        Background="{DynamicResource LayerFillColorDefaultBrush}"
+        BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+        BorderThickness="0,1,0,0">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+        <StackPanel VerticalAlignment="Center" Spacing="2">
+          <TextBlock Classes="secondary" FontSize="12" FontWeight="SemiBold" Text="{Binding OutputHeading}" />
+          <TextBlock
+              Classes="secondary"
+              FontSize="12"
+              MaxWidth="420"
+              Text="{Binding OutputPath}"
+              TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+        <Button
+            Grid.Column="1"
+            Click="ChooseMainOutput_Click"
+            Content="Choose Location…"
+            IsEnabled="{Binding HasBaseColor}" />
+        <Button
+            Grid.Column="2"
+            Click="UseDefaultOutput_Click"
+            Content="Use Default"
+            IsVisible="{Binding UsesCustomOutput}" />
+        <Button Grid.Column="3" Click="ClearAll_Click" Content="Clear All" />
+        <Button
+            Grid.Column="4"
+            Classes="primary"
+            Click="ExportAll_Click"
+            Content="Export All"
+            IsEnabled="{Binding CanExportMain}"
+            IsVisible="{Binding ShowsExportAll}" />
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

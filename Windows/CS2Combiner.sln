@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CS2Combiner.Core", "CS2Combiner.Core\CS2Combiner.Core.csproj", "{1D350529-2BB1-4A7E-8F8F-998A8E409F7E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CS2Combiner.App", "CS2Combiner.App\CS2Combiner.App.csproj", "{A2337D73-1C91-4715-9C44-DA282F708A5C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CS2Combiner.Tests", "CS2Combiner.Tests\CS2Combiner.Tests.csproj", "{8D4456BB-6EEB-4587-905F-86E1CC7EC726}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1D350529-2BB1-4A7E-8F8F-998A8E409F7E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1D350529-2BB1-4A7E-8F8F-998A8E409F7E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1D350529-2BB1-4A7E-8F8F-998A8E409F7E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1D350529-2BB1-4A7E-8F8F-998A8E409F7E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A2337D73-1C91-4715-9C44-DA282F708A5C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A2337D73-1C91-4715-9C44-DA282F708A5C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A2337D73-1C91-4715-9C44-DA282F708A5C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A2337D73-1C91-4715-9C44-DA282F708A5C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8D4456BB-6EEB-4587-905F-86E1CC7EC726}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8D4456BB-6EEB-4587-905F-86E1CC7EC726}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8D4456BB-6EEB-4587-905F-86E1CC7EC726}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8D4456BB-6EEB-4587-905F-86E1CC7EC726}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

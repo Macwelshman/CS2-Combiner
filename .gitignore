@@ -2,3 +2,8 @@
 .swiftpm/
 .DS_Store
 dist/
+Windows/**/bin/
+Windows/**/obj/
+tmp/
+output/
+Resources/Icons/*-chroma.png

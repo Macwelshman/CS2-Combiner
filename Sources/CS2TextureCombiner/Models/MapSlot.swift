@@ -17,33 +17,33 @@ enum MapSlot: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .baseColor: "Base Color"
+        case .baseColor: "BaseColor"
         case .opacity: "Opacity"
-        case .cm1: "CM1"
-        case .cm2: "CM2"
-        case .cm3: "CM3"
+        case .cm1: "\(AppSpelling.colour)Mask1"
+        case .cm2: "\(AppSpelling.colour)Mask2"
+        case .cm3: "\(AppSpelling.colour)Mask3"
         case .snowRemove: "Snow Remove"
         case .metallic: "Metallic"
         case .coat: "Coat"
         case .roughness: "Roughness"
-        case .normal: "Normal (OpenGL)"
+        case .normal: "Normal"
         case .emissive: "Emissive"
         }
     }
 
     var channelDescription: String {
         switch self {
-        case .baseColor: "RGB → BaseColor RGB"
-        case .opacity: "Red → BaseColor Alpha · default white"
-        case .cm1: "Red → ControlMask Red · default black"
-        case .cm2: "Red → ControlMask Green · default black"
-        case .cm3: "Red → ControlMask Blue · default black"
-        case .snowRemove: "Red → ControlMask Alpha · default black"
-        case .metallic: "Red → MaskMap Red · default black"
-        case .coat: "Red → MaskMap Green · default black"
-        case .roughness: "Inverted Red → MaskMap Alpha · default rough"
-        case .normal: "RGB → Normal RGB · default neutral"
-        case .emissive: "RGB → Emissive RGB · default black"
+        case .baseColor: "BaseColor RGB + embedded Alpha"
+        case .opacity: "BaseColor Alpha fallback · default white"
+        case .cm1: "ControlMask Red · default black"
+        case .cm2: "ControlMask Green · default black"
+        case .cm3: "ControlMask Blue · default black"
+        case .snowRemove: "ControlMask Alpha · default black"
+        case .metallic: "MaskMap Red · default black"
+        case .coat: "MaskMap Green · default black"
+        case .roughness: "MaskMap Alpha · inverted · default rough"
+        case .normal: "Normal RGB · default neutral"
+        case .emissive: "Emissive RGB · default black"
         }
     }
 
@@ -51,7 +51,7 @@ enum MapSlot: String, CaseIterable, Identifiable, Sendable {
 }
 
 enum SlotGroup: String, CaseIterable, Identifiable {
-    case baseColor = "Base Color"
+    case baseColor = "BaseColor"
     case controlMask = "Control Mask"
     case maskMap = "Mask Map"
     case surface = "Surface"

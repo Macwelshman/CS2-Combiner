@@ -12,6 +12,24 @@ struct ImageRaster: Sendable {
 }
 
 enum ImageLoader {
+    static func hasAlphaChannel(_ url: URL) throws -> Bool {
+        guard
+            let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+            let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
+        else {
+            throw CombinerError.unreadableImage(url)
+        }
+
+        switch image.alphaInfo {
+        case .premultipliedLast, .premultipliedFirst, .last, .first, .alphaOnly:
+            return true
+        case .none, .noneSkipLast, .noneSkipFirst:
+            return false
+        @unknown default:
+            return false
+        }
+    }
+
     static func dimensions(of url: URL) throws -> PixelSize {
         guard
             let source = CGImageSourceCreateWithURL(url as CFURL, nil),
@@ -24,7 +42,7 @@ enum ImageLoader {
         return PixelSize(width: width, height: height)
     }
 
-    static func raster(from url: URL, target: PixelSize) throws -> ImageRaster {
+    static func raster(from url: URL) throws -> ImageRaster {
         guard
             let source = CGImageSourceCreateWithURL(url as CFURL, nil),
             let image = CGImageSourceCreateImageAtIndex(source, 0, [
@@ -34,7 +52,8 @@ enum ImageLoader {
             throw CombinerError.unreadableImage(url)
         }
 
-        let byteCount = target.width * target.height * 4
+        let size = PixelSize(width: image.width, height: image.height)
+        let byteCount = size.width * size.height * 4
         var bytes = [UInt8](repeating: 0, count: byteCount)
         // Texture channels are data, not display colour. Drawing into the
         // source colour space preserves its component values instead of
@@ -43,24 +62,24 @@ enum ImageLoader {
         let created = bytes.withUnsafeMutableBytes { rawBuffer -> Bool in
             guard let base = rawBuffer.baseAddress, let context = CGContext(
                 data: base,
-                width: target.width,
-                height: target.height,
+                width: size.width,
+                height: size.height,
                 bitsPerComponent: 8,
-                bytesPerRow: target.width * 4,
+                bytesPerRow: size.width * 4,
                 space: colorSpace,
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue |
                     CGBitmapInfo.byteOrder32Big.rawValue
             ) else { return false }
 
-            context.interpolationQuality = .high
-            context.draw(image, in: CGRect(x: 0, y: 0, width: target.width, height: target.height))
+            context.interpolationQuality = .none
+            context.draw(image, in: CGRect(x: 0, y: 0, width: size.width, height: size.height))
             return true
         }
         guard created else { throw CombinerError.cannotCreateImage }
 
         // CGContext returns premultiplied RGB. Convert to straight bytes before
         // repacking channels so translucent source pixels preserve their colour.
-        for pixel in 0..<(target.width * target.height) {
+        for pixel in 0..<(size.width * size.height) {
             let index = pixel * 4
             let alpha = Int(bytes[index + 3])
             guard alpha > 0, alpha < 255 else { continue }
@@ -69,7 +88,7 @@ enum ImageLoader {
             bytes[index + 2] = UInt8(min(255, (Int(bytes[index + 2]) * 255 + alpha / 2) / alpha))
         }
 
-        return ImageRaster(width: target.width, height: target.height, bytes: bytes)
+        return ImageRaster(width: size.width, height: size.height, bytes: bytes)
     }
 
     static func writePNG(_ raster: ImageRaster, to url: URL) throws {

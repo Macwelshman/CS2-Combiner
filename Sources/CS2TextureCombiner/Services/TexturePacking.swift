@@ -3,14 +3,45 @@ import Foundation
 enum TexturePacking {
     static func validateBaseColor(_ input: InputMap?) throws -> PixelSize {
         guard let input else { throw CombinerError.baseColorRequired }
-        let size = input.size
-        guard size.isSquare, (512...4096).contains(size.width) else {
-            throw CombinerError.invalidBaseColorSize(size)
+        try validateMainInputSize(input.size, name: input.slot.title)
+        return input.size
+    }
+
+    static func validateMainInputSize(_ size: PixelSize, name: String) throws {
+        guard size.isSquare, [1024, 2048, 4096].contains(size.width) else {
+            throw CombinerError.invalidMainTextureSize(name: name, size: size)
         }
-        return size
+    }
+
+    static func validateInputSizes(
+        _ inputs: [MapSlot: InputMap],
+        targetSize: PixelSize
+    ) throws {
+        guard let baseColor = inputs[.baseColor] else {
+            throw CombinerError.baseColorRequired
+        }
+        guard targetSize == baseColor.size else {
+            throw CombinerError.exportSizeMismatch(
+                imported: baseColor.size,
+                requested: targetSize
+            )
+        }
+
+        let mismatches = inputs.values
+            .filter { $0.size != baseColor.size }
+            .sorted { $0.slot.title < $1.slot.title }
+            .map { "\($0.slot.title): \($0.size)" }
+        guard mismatches.isEmpty else {
+            throw CombinerError.mismatchedTextureSizes(
+                expected: baseColor.size,
+                maps: mismatches
+            )
+        }
     }
 
     static func export(_ plan: TextureExportPlan) throws -> [URL] {
+        try validateInputSizes(plan.inputs, targetSize: plan.targetSize)
+
         let fileManager = FileManager.default
         try fileManager.createDirectory(
             at: plan.outputDirectory,
@@ -60,13 +91,22 @@ enum TexturePacking {
         guard let baseInput = plan.inputs[.baseColor] else {
             throw CombinerError.baseColorRequired
         }
-        var base = try ImageLoader.raster(from: baseInput.url, target: plan.targetSize)
-        let opacity = try plan.inputs[.opacity].map {
-            try ImageLoader.raster(from: $0.url, target: plan.targetSize)
-        }
+        let usesEmbeddedAlpha = try ImageLoader.hasAlphaChannel(baseInput.url)
+        var base = try ImageLoader.raster(from: baseInput.url)
+        let usesOpacityMap = plan.inputs[.opacity] != nil &&
+            (!usesEmbeddedAlpha || plan.opacityMapOverridesBaseColorAlpha)
+        let opacity = try usesOpacityMap ? plan.inputs[.opacity].map {
+            try ImageLoader.raster(from: $0.url)
+        } : nil
 
-        for pixel in 0..<(plan.targetSize.width * plan.targetSize.height) {
-            base.bytes[pixel * 4 + 3] = opacity?.red(at: pixel) ?? 255
+        if let opacity {
+            for pixel in 0..<(plan.targetSize.width * plan.targetSize.height) {
+                base.bytes[pixel * 4 + 3] = opacity.red(at: pixel)
+            }
+        } else if !usesEmbeddedAlpha {
+            for pixel in 0..<(plan.targetSize.width * plan.targetSize.height) {
+                base.bytes[pixel * 4 + 3] = 255
+            }
         }
         try ImageLoader.writePNG(base, to: url)
     }
@@ -74,7 +114,7 @@ enum TexturePacking {
     private static func writeControlMask(_ plan: TextureExportPlan, to url: URL) throws {
         let channels = try [.cm1, .cm2, .cm3, .snowRemove].map { slot in
             try plan.inputs[slot].map {
-                try ImageLoader.raster(from: $0.url, target: plan.targetSize)
+                try ImageLoader.raster(from: $0.url)
             }
         }
         var output = blank(plan.targetSize, alpha: 0)
@@ -103,6 +143,9 @@ enum TexturePacking {
 
     private static func writeNormal(_ plan: TextureExportPlan, to url: URL) throws {
         if var normal = try raster(for: .normal, in: plan) {
+            if plan.normalizeNormalOnExport {
+                NormalMapNormalization.normalize(&normal)
+            }
             for pixel in 0..<(plan.targetSize.width * plan.targetSize.height) {
                 normal.bytes[pixel * 4 + 3] = 255
             }
@@ -128,7 +171,7 @@ enum TexturePacking {
 
     private static func raster(for slot: MapSlot, in plan: TextureExportPlan) throws -> ImageRaster? {
         try plan.inputs[slot].map {
-            try ImageLoader.raster(from: $0.url, target: plan.targetSize)
+            try ImageLoader.raster(from: $0.url)
         }
     }
 

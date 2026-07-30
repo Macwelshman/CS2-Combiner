@@ -9,17 +9,22 @@ final class TextureCombinerStore: ObservableObject {
     @Published private(set) var isWorking = false
     @Published private(set) var lastExportedURLs: [URL] = []
     @Published private(set) var customExportRoot: URL?
-    @Published private(set) var isNormalizing = false
-    @Published private(set) var normalizationStatus = "Assign an OpenGL Normal map to enable normalization."
-    @Published private(set) var lastNormalizedURL: URL?
+    @Published private(set) var baseColorHasAlpha = false
+    @Published private(set) var opacityMapOverridesBaseColorAlpha = false
+    @Published private(set) var normalizeNormalOnExport = false
 
     var baseColor: InputMap? { inputs[.baseColor] }
     var normalInput: InputMap? { inputs[.normal] }
+    var opacitySource: OpacitySource {
+        OpacitySource.resolve(
+            hasBaseColor: baseColor != nil,
+            baseColorHasAlpha: baseColorHasAlpha,
+            hasOpacityMap: inputs[.opacity] != nil,
+            opacityMapOverridesBaseColorAlpha: opacityMapOverridesBaseColorAlpha
+        )
+    }
     var assetName: String? {
         baseColor.map { AssetNaming.inferredAssetName(from: $0.url) }
-    }
-    var outputFolderName: String? {
-        baseColor.map { AssetNaming.outputFolderName(for: $0.url) }
     }
     var defaultOutputDirectory: URL? {
         guard let baseColor else { return nil }
@@ -33,51 +38,57 @@ final class TextureCombinerStore: ObservableObject {
         )
     }
     var usesCustomOutputLocation: Bool { customExportRoot != nil }
-    var canExport: Bool { baseColor != nil && !isWorking && !isNormalizing }
-    var canNormalize: Bool { normalInput != nil && !isWorking && !isNormalizing }
+    var canExport: Bool { baseColor != nil && !isWorking }
 
     func input(for slot: MapSlot) -> InputMap? { inputs[slot] }
+
+    func setOpacityMapOverride(_ enabled: Bool) {
+        opacityMapOverridesBaseColorAlpha = enabled && inputs[.opacity] != nil
+        lastExportedURLs = []
+    }
+
+    func setNormalizeNormalOnExport(_ enabled: Bool) {
+        normalizeNormalOnExport = enabled && normalInput != nil
+        lastExportedURLs = []
+    }
 
     func importDropped(_ urls: [URL]) {
         guard !urls.isEmpty else { return }
         var assigned = 0
-        var skipped = 0
-        var directXNormals = 0
+        var rejected: [String] = []
 
         for root in urls {
             let isDirectory = (try? root.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
             let candidates = MapDetector.imageURLs(in: [root])
             for candidate in candidates {
+                if LOD2Store.isLOD2Candidate(candidate) {
+                    continue
+                }
                 guard let slot = MapDetector.slot(for: candidate) else {
-                    skipped += 1
                     continue
                 }
                 if slot == .normal, MapDetector.isDirectXNormal(candidate) {
-                    directXNormals += 1
                     continue
                 }
                 if isDirectory, inputs[slot] != nil {
-                    skipped += 1
                     continue
                 }
                 do {
                     try assign(candidate, to: slot)
                     assigned += 1
                 } catch {
-                    skipped += 1
+                    rejected.append(candidate.lastPathComponent)
                 }
             }
         }
 
-        var message = assigned == 1 ? "Assigned 1 map." : "Assigned \(assigned) maps."
-        if skipped > 0 { message += " Skipped \(skipped) unrecognised or occupied item(s)." }
-        if directXNormals > 0 {
-            message += " Skipped \(directXNormals) DirectX normal map(s); OpenGL is required."
+        status = "Imported \(assigned) main map\(assigned == 1 ? "" : "s")."
+        if !rejected.isEmpty {
+            status += " Skipped incompatible files: \(rejected.joined(separator: ", ")). Main maps must be square 1K, 2K, or 4K."
         }
-        status = message
     }
 
-    func chooseImages() {
+    func chooseImages(onSelection: (([URL]) -> Void)? = nil) {
         let panel = NSOpenPanel()
         panel.title = "Add exported texture maps"
         panel.prompt = "Add Maps"
@@ -85,11 +96,11 @@ final class TextureCombinerStore: ObservableObject {
         panel.canChooseDirectories = false
         panel.allowedContentTypes = [.image]
         if panel.runModal() == .OK {
-            importDropped(panel.urls)
+            if let onSelection { onSelection(panel.urls) } else { importDropped(panel.urls) }
         }
     }
 
-    func chooseFolder() {
+    func chooseFolder(onSelection: (([URL]) -> Void)? = nil) {
         let panel = NSOpenPanel()
         panel.title = "Scan a folder for exported texture maps"
         panel.prompt = "Scan Folder"
@@ -97,7 +108,7 @@ final class TextureCombinerStore: ObservableObject {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         if panel.runModal() == .OK {
-            importDropped(panel.urls)
+            if let onSelection { onSelection(panel.urls) } else { importDropped(panel.urls) }
         }
     }
 
@@ -122,28 +133,32 @@ final class TextureCombinerStore: ObservableObject {
 
     func remove(_ slot: MapSlot) {
         inputs.removeValue(forKey: slot)
-        lastExportedURLs = []
-        if slot == .normal {
-            lastNormalizedURL = nil
-            normalizationStatus = "Assign an OpenGL Normal map to enable normalization."
+        if slot == .baseColor {
+            baseColorHasAlpha = false
+        } else if slot == .opacity {
+            opacityMapOverridesBaseColorAlpha = false
+        } else if slot == .normal {
+            normalizeNormalOnExport = false
         }
+        lastExportedURLs = []
         status = "Removed \(slot.title)."
     }
 
     func clear() {
         inputs.removeAll()
+        baseColorHasAlpha = false
+        opacityMapOverridesBaseColorAlpha = false
+        normalizeNormalOnExport = false
         lastExportedURLs = []
-        lastNormalizedURL = nil
         customExportRoot = nil
-        normalizationStatus = "Assign an OpenGL Normal map to enable normalization."
         status = "Cleared all assigned maps."
     }
 
     func chooseCustomExportLocation() {
         let panel = NSOpenPanel()
-        panel.title = "Choose a location for \(outputFolderName ?? "the export folder")"
+        panel.title = "Choose export location"
         panel.prompt = "Choose Location"
-        panel.message = "The app will create \(outputFolderName ?? "the derived export folder") inside this location."
+        panel.message = "Exported textures will be written directly into the selected folder."
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
@@ -158,7 +173,7 @@ final class TextureCombinerStore: ObservableObject {
         customExportRoot = nil
         lastExportedURLs = []
         if let defaultOutputDirectory {
-            status = "Output reset beside the Base Color source: \(defaultOutputDirectory.lastPathComponent)."
+            status = "Output reset to \(defaultOutputDirectory.lastPathComponent) in the BaseColor source folder."
         }
     }
 
@@ -170,123 +185,60 @@ final class TextureCombinerStore: ObservableObject {
         }
     }
 
-    func export() {
+    func export(additionalOutputCount: Int = 0, completion: @escaping (Bool) -> Void = { _ in }) {
         do {
             let size = try TexturePacking.validateBaseColor(baseColor)
             guard let baseColor, let outputDirectory else {
                 throw CombinerError.baseColorRequired
             }
-
-            let mismatches = inputs.values
-                .filter { $0.slot != .baseColor && $0.size != size }
-                .sorted { $0.slot.title < $1.slot.title }
-            if !mismatches.isEmpty, !confirmResize(mismatches, target: size) {
-                status = "Export cancelled."
-                return
-            }
+            try TexturePacking.validateInputSizes(inputs, targetSize: size)
 
             let plan = TextureExportPlan(
                 inputs: inputs,
                 targetSize: size,
                 outputDirectory: outputDirectory,
-                assetName: AssetNaming.inferredAssetName(from: baseColor.url)
+                assetName: AssetNaming.inferredAssetName(from: baseColor.url),
+                opacityMapOverridesBaseColorAlpha: opacityMapOverridesBaseColorAlpha,
+                normalizeNormalOnExport: normalizeNormalOnExport
             )
             let existing = plan.outputURLs.filter {
                 FileManager.default.fileExists(atPath: $0.path)
             }
             if !existing.isEmpty, !confirmOverwrite(existing) {
                 status = "Export cancelled."
+                completion(false)
                 return
             }
 
             isWorking = true
             lastExportedURLs = []
-            status = "Packing five \(size.width) × \(size.height) PNGs…"
+            status = additionalOutputCount > 0
+                ? "Exporting 5 main textures and \(additionalOutputCount) LOD2 texture\(additionalOutputCount == 1 ? "" : "s")…"
+                : "Packing five \(size.width) × \(size.height) PNGs…"
             Task {
                 do {
                     let urls = try await Task.detached(priority: .userInitiated) {
                         try TexturePacking.export(plan)
                     }.value
                     self.lastExportedURLs = urls
-                    self.status = "Exported five PNGs to \(plan.outputDirectory.lastPathComponent)."
+                    self.status = "Exported 5 main textures to \(plan.outputDirectory.lastPathComponent)."
+                    completion(true)
                 } catch {
                     self.status = error.localizedDescription
+                    completion(false)
                 }
                 self.isWorking = false
             }
         } catch {
             status = error.localizedDescription
             presentError(error.localizedDescription)
+            completion(false)
         }
     }
 
     func revealOutput() {
         guard let outputDirectory else { return }
         NSWorkspace.shared.activateFileViewerSelecting([outputDirectory])
-    }
-
-    func normalizeNormal() {
-        guard let normalInput else {
-            normalizationStatus = "Assign an OpenGL Normal map first."
-            presentError(normalizationStatus)
-            return
-        }
-
-        let suggested = NormalMapNormalization.suggestedOutputURL(for: normalInput.url)
-        let panel = NSSavePanel()
-        panel.title = "Save Normalized Normal Map"
-        panel.prompt = "Choose Destination"
-        panel.message = "This creates a separate normalized map. It does not replace the Normal slot or run CS2 export."
-        panel.directoryURL = suggested.deletingLastPathComponent()
-        panel.nameFieldStringValue = suggested.lastPathComponent
-        panel.allowedContentTypes = [NormalMapNormalization.outputType(for: normalInput.url)]
-        panel.canCreateDirectories = true
-        guard panel.runModal() == .OK, let destination = panel.url else {
-            normalizationStatus = "Normalization cancelled."
-            return
-        }
-
-        let alert = NSAlert()
-        alert.alertStyle = .informational
-        alert.messageText = "Normalize this normal map?"
-        alert.informativeText = """
-        Source:
-        \(normalInput.url.path(percentEncoded: false))
-
-        Destination:
-        \(destination.path(percentEncoded: false))
-
-        The selected Normal slot will remain unchanged.
-        """
-        alert.addButton(withTitle: "Normalize")
-        alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else {
-            normalizationStatus = "Normalization cancelled."
-            return
-        }
-
-        isNormalizing = true
-        lastNormalizedURL = nil
-        normalizationStatus = "Normalizing \(normalInput.url.lastPathComponent)…"
-        let source = normalInput.url
-        Task {
-            do {
-                try await Task.detached(priority: .userInitiated) {
-                    try NormalMapNormalization.normalize(source, to: destination)
-                }.value
-                self.lastNormalizedURL = destination
-                self.normalizationStatus = "Created \(destination.lastPathComponent). Normal slot unchanged."
-            } catch {
-                self.normalizationStatus = error.localizedDescription
-                self.presentError(error.localizedDescription)
-            }
-            self.isNormalizing = false
-        }
-    }
-
-    func revealNormalized() {
-        guard let lastNormalizedURL else { return }
-        NSWorkspace.shared.activateFileViewerSelecting([lastNormalizedURL])
     }
 
     private func assignWithErrorHandling(_ url: URL, to slot: MapSlot) {
@@ -307,36 +259,25 @@ final class TextureCombinerStore: ObservableObject {
 
     private func assign(_ url: URL, to slot: MapSlot) throws {
         let size = try ImageLoader.dimensions(of: url)
+        try TexturePacking.validateMainInputSize(size, name: slot.title)
+        if slot == .baseColor {
+            baseColorHasAlpha = try ImageLoader.hasAlphaChannel(url)
+        }
         inputs[slot] = InputMap(slot: slot, url: url, size: size)
         lastExportedURLs = []
-        if slot == .normal {
-            lastNormalizedURL = nil
-            normalizationStatus = "Ready to normalize \(url.lastPathComponent) as a separate file."
-        }
-    }
-
-    private func confirmResize(_ maps: [InputMap], target: PixelSize) -> Bool {
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = "Resize companion maps?"
-        alert.informativeText = """
-        Base Color sets the output to \(target). These maps have different dimensions and will be resized with high-quality filtering:
-
-        \(maps.map { "\($0.slot.title): \($0.size)" }.joined(separator: "\n"))
-        """
-        alert.addButton(withTitle: "Resize and Continue")
-        alert.addButton(withTitle: "Cancel")
-        return alert.runModal() == .alertFirstButtonReturn
     }
 
     private func confirmOverwrite(_ urls: [URL]) -> Bool {
         let alert = NSAlert()
-        alert.alertStyle = .critical
-        alert.messageText = "Replace existing exports?"
+        alert.alertStyle = .informational
+        alert.icon = nil
+        alert.messageText = "Replace existing exports"
         alert.informativeText = """
-        The following files already exist in \(outputFolderName ?? "the export folder"):
+        The following files already exist in \(outputDirectory?.lastPathComponent ?? "the export folder"):
 
         \(urls.map(\.lastPathComponent).joined(separator: "\n"))
+
+        If one of these files is an assigned source map, replacing it will update that source file.
         """
         alert.addButton(withTitle: "Replace")
         alert.addButton(withTitle: "Cancel")
@@ -346,7 +287,7 @@ final class TextureCombinerStore: ObservableObject {
     private func presentError(_ message: String) {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "CS2 Texture Combiner"
+        alert.messageText = "CS2 Combiner"
         alert.informativeText = message
         alert.runModal()
     }

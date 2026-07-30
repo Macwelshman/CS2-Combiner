@@ -1,0 +1,60 @@
+<Application
+    x:Class="CS2Combiner.App.App"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    RequestedThemeVariant="Light">
+  <Application.Resources>
+    <SolidColorBrush x:Key="CS2AccentBrush" Color="#2678D4" />
+    <SolidColorBrush x:Key="CS2AccentSoftBrush" Color="#EEF5FC" />
+    <SolidColorBrush x:Key="CS2PanelBrush" Color="#F5F6F8" />
+    <SolidColorBrush x:Key="CS2CardBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="CS2BorderBrush" Color="#D4D8DF" />
+    <SolidColorBrush x:Key="CS2DividerBrush" Color="#E3E6EA" />
+    <SolidColorBrush x:Key="CS2SuccessBrush" Color="#21864B" />
+  </Application.Resources>
+  <Application.Styles>
+    <FluentTheme />
+    <Style Selector="Button">
+      <Setter Property="Padding" Value="11,6" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{StaticResource CS2AccentBrush}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{StaticResource CS2CardBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource CS2BorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="Padding" Value="12" />
+    </Style>
+    <Style Selector="Border.workflow">
+      <Setter Property="Background" Value="{StaticResource CS2PanelBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource CS2BorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="14" />
+    </Style>
+    <Style Selector="Border.sectionCard">
+      <Setter Property="Background" Value="{StaticResource CS2CardBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource CS2BorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="9" />
+    </Style>
+    <Style Selector="Border.sectionHeader">
+      <Setter Property="Background" Value="{StaticResource CS2AccentSoftBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource CS2BorderBrush}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="Padding" Value="11,8" />
+    </Style>
+    <Style Selector="Border.slotRow">
+      <Setter Property="BorderBrush" Value="{StaticResource CS2DividerBrush}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="Padding" Value="9" />
+    </Style>
+    <Style Selector="TextBlock.secondary">
+      <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    </Style>
+  </Application.Styles>
+</Application>
