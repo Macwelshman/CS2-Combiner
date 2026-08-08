@@ -151,7 +151,7 @@
                 <TextBlock
                     Classes="secondary"
                     FontSize="12"
-                    Text="Main maps must be square 1024, 2048, or 4096 pixels. Textures are never resized." />
+                    Text="Main maps must be square 512, 1024, 2048, or 4096 pixels. Textures are never resized." />
               </Border>
               <Button
                   Grid.Column="1"

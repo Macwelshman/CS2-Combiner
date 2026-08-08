@@ -117,7 +117,7 @@ enum CombinerError: LocalizedError {
         case .baseColorRequired:
             "Add a BaseColor map before exporting."
         case .invalidMainTextureSize(let name, let size):
-            "\(name) must be square and exactly 1024, 2048, or 4096 pixels. It is \(size)."
+            "\(name) must be square and exactly 512, 1024, 2048, or 4096 pixels. It is \(size)."
         case .exportSizeMismatch(let imported, let requested):
             "The export size \(requested) does not match the imported BaseColor size \(imported). Textures are never resized."
         case .mismatchedTextureSizes(let expected, let maps):

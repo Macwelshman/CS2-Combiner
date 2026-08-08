@@ -244,7 +244,7 @@ def importing(c, page):
         left_width,
         88,
         "Accepted dimensions",
-        "Main textures: square 1024, 2048, or 4096 px. LOD2 textures: exactly "
+        "Main textures: square 512, 1024, 2048, or 4096 px. LOD2 textures: exactly "
         "512 x 512. Imported textures are never resized.",
     )
 
@@ -375,7 +375,7 @@ def exporting(c, page):
         y,
         W - 2 * M,
     )
-    draw_image(c, ASSETS / "export-controls.png", 290, y - 34, 263, 22)
+    draw_image(c, ASSETS / "export-controls.png", 368, y - 28, 185, 16)
     y -= 58
 
     info_card(
@@ -444,7 +444,7 @@ def common_workflows(c, page):
         ("Use BaseColor alpha", "Leave Override BaseColor alpha off. The live Opacity row confirms the active source."),
         ("Use an Opacity map", "Assign the map. Enable Override BaseColor alpha only when it should take precedence."),
         ("Normalise on export", "Enable Normalise on the Normal row. Only the exported Normal pixels are corrected."),
-        ("Resolve a size mismatch", "Prepare matching 1K, 2K, or 4K main maps. LOD2 inputs must be 512 x 512."),
+        ("Resolve a size mismatch", "Prepare matching 512, 1024, 2048, or 4096 px main maps. LOD2 inputs must be 512 x 512."),
         ("Replace existing exports", "Review the listed filenames, then replace them or cancel without changing the existing set."),
         ("Keep outputs together", "Use Export All with the main texture folder enabled. It appears only when main and LOD2 maps are both assigned."),
     ]

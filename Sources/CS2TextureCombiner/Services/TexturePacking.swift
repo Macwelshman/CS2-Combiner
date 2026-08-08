@@ -8,7 +8,7 @@ enum TexturePacking {
     }
 
     static func validateMainInputSize(_ size: PixelSize, name: String) throws {
-        guard size.isSquare, [1024, 2048, 4096].contains(size.width) else {
+        guard size.isSquare, [512, 1024, 2048, 4096].contains(size.width) else {
             throw CombinerError.invalidMainTextureSize(name: name, size: size)
         }
     }
@@ -20,6 +20,7 @@ enum TexturePacking {
         guard let baseColor = inputs[.baseColor] else {
             throw CombinerError.baseColorRequired
         }
+        try validateMainInputSize(baseColor.size, name: baseColor.slot.title)
         guard targetSize == baseColor.size else {
             throw CombinerError.exportSizeMismatch(
                 imported: baseColor.size,

@@ -41,7 +41,7 @@ replaced.
 
 ## Main texture requirements
 
-BaseColor is required and must be a square 1024, 2048, or 4096 pixel image.
+BaseColor is required and must be a square 512, 1024, 2048, or 4096 pixel image.
 Every assigned main map must have exactly the same dimensions. Textures are
 never resized, and a mismatch stops the export before any output is written.
 

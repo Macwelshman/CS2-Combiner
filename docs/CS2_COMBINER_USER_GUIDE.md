@@ -14,7 +14,7 @@ slots automatically. Drop a file directly on a row or use **Assign...** /
 
 Accepted dimensions:
 
-- Main textures must be square 1024, 2048, or 4096 pixel images.
+- Main textures must be square 512, 1024, 2048, or 4096 pixel images.
 - LOD2 textures must be exactly 512 x 512.
 - Imported textures are never resized.
 
@@ -100,7 +100,7 @@ are assigned. With LOD2 maps alone, use **Export LOD2**.
 - **Use BaseColor alpha:** leave the override off and confirm the live status.
 - **Use an Opacity map:** enable the override only when it should take priority.
 - **Normalise on export:** enable **Normalise** on the Normal row.
-- **Resolve a mismatch:** prepare matching 1K, 2K, or 4K main maps.
+- **Resolve a mismatch:** prepare matching 512, 1024, 2048, or 4096 pixel main maps.
 - **Keep outputs together:** use **Export All** with the main folder option.
 
 If an output already exists in the destination, the app lists it and asks

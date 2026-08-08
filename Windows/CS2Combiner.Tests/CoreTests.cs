@@ -87,6 +87,7 @@ public sealed class CoreTests
     }
 
     [Theory]
+    [InlineData(512)]
     [InlineData(1024)]
     [InlineData(2048)]
     [InlineData(4096)]
@@ -100,14 +101,27 @@ public sealed class CoreTests
     }
 
     [Theory]
-    [InlineData(512, 512)]
+    [InlineData(256, 256)]
     [InlineData(1024, 512)]
     [InlineData(8192, 8192)]
     public void MainValidationRejectsOtherSizes(int width, int height)
     {
         var input = new InputMap(MapSlot.BaseColor, "/tmp/BaseColor.png", new(width, height));
         var error = Assert.Throws<CombinerException>(() => TexturePacking.ValidateBaseColor(input));
-        Assert.Contains("exactly 1024, 2048, or 4096", error.Message);
+        Assert.Contains("exactly 512, 1024, 2048, or 4096", error.Message);
+    }
+
+    [Fact]
+    public void ExportValidationRejectsUnsupportedBaseColorSize()
+    {
+        var size = new PixelSize(256, 256);
+        var baseColor = new InputMap(MapSlot.BaseColor, "/tmp/BaseColor.png", size);
+        IReadOnlyDictionary<MapSlot, InputMap> inputs =
+            new Dictionary<MapSlot, InputMap> { [MapSlot.BaseColor] = baseColor };
+
+        var error = Assert.Throws<CombinerException>(
+            () => TexturePacking.ValidateInputSizes(inputs, size));
+        Assert.Contains("exactly 512, 1024, 2048, or 4096", error.Message);
     }
 
     [Fact]
@@ -131,21 +145,21 @@ public sealed class CoreTests
         var output = Path.Combine(temporary.Path, "Output");
         var basePath = Path.Combine(temporary.Path, "Brick_BaseColor.png");
         var opacityPath = Path.Combine(temporary.Path, "Brick_Opacity.png");
-        ImageCodec.WritePng(Solid(new(2, 2), 20, 40, 60), basePath);
-        ImageCodec.WritePng(Solid(new(1, 1), 170, 0, 0), opacityPath);
+        ImageCodec.WritePng(Solid(new(512, 512), 20, 40, 60), basePath);
+        ImageCodec.WritePng(Solid(new(256, 256), 170, 0, 0), opacityPath);
         var plan = new TextureExportPlan(
             new Dictionary<MapSlot, InputMap>
             {
-                [MapSlot.BaseColor] = new(MapSlot.BaseColor, basePath, new(2, 2)),
-                [MapSlot.Opacity] = new(MapSlot.Opacity, opacityPath, new(1, 1))
+                [MapSlot.BaseColor] = new(MapSlot.BaseColor, basePath, new(512, 512)),
+                [MapSlot.Opacity] = new(MapSlot.Opacity, opacityPath, new(256, 256))
             },
-            new(2, 2),
+            new(512, 512),
             output,
             "Brick");
 
         var error = Assert.Throws<CombinerException>(() => TexturePacking.Export(plan));
         Assert.Contains("Textures are never resized", error.Message);
-        Assert.Contains("Opacity: 1 × 1", error.Message);
+        Assert.Contains("Opacity: 256 × 256", error.Message);
         Assert.False(Directory.Exists(output));
     }
 
@@ -154,7 +168,7 @@ public sealed class CoreTests
     {
         using var temporary = new TemporaryFolder();
         var output = Path.Combine(temporary.Path, "Output");
-        var size = new PixelSize(2, 2);
+        var size = new PixelSize(512, 512);
         var values = new Dictionary<MapSlot, (byte Red, byte Green, byte Blue)>
         {
             [MapSlot.BaseColor] = (20, 40, 60),
@@ -208,7 +222,7 @@ public sealed class CoreTests
     {
         using var temporary = new TemporaryFolder();
         var output = Path.Combine(temporary.Path, "Output");
-        var size = new PixelSize(1, 1);
+        var size = new PixelSize(512, 512);
         var basePath = Path.Combine(temporary.Path, "Glass_BaseColor.png");
         var opacityPath = Path.Combine(temporary.Path, "Glass_Opacity.png");
         ImageCodec.WritePng(Solid(size, 20, 40, 60, 90), basePath);
@@ -232,7 +246,7 @@ public sealed class CoreTests
     {
         using var temporary = new TemporaryFolder();
         var output = Path.Combine(temporary.Path, "Output");
-        var size = new PixelSize(1, 1);
+        var size = new PixelSize(512, 512);
         var basePath = Path.Combine(temporary.Path, "BaseColor.png");
         WriteRgbPng(size, 1, 2, 3, basePath);
         var input = new InputMap(MapSlot.BaseColor, basePath, size);
@@ -255,7 +269,7 @@ public sealed class CoreTests
     {
         using var temporary = new TemporaryFolder();
         var output = Path.Combine(temporary.Path, "Output");
-        var size = new PixelSize(1, 1);
+        var size = new PixelSize(512, 512);
         var basePath = Path.Combine(temporary.Path, "Brick_BaseColor.png");
         var normalPath = Path.Combine(temporary.Path, "Brick_NormalGL.png");
         WriteRgbPng(size, 20, 40, 60, basePath);

@@ -15,10 +15,10 @@ public static class TexturePacking
 
     public static void ValidateMainInputSize(PixelSize size, string name)
     {
-        if (!size.IsSquare || size.Width is not (1024 or 2048 or 4096))
+        if (!size.IsSquare || size.Width is not (512 or 1024 or 2048 or 4096))
         {
             throw new CombinerException(
-                $"{name} must be square and exactly 1024, 2048, or 4096 pixels. It is {size}.");
+                $"{name} must be square and exactly 512, 1024, 2048, or 4096 pixels. It is {size}.");
         }
     }
 
@@ -30,6 +30,8 @@ public static class TexturePacking
         {
             throw new CombinerException("Add a BaseColor map before exporting.");
         }
+
+        ValidateMainInputSize(baseColor.Size, baseColor.Slot.Title());
 
         if (targetSize != baseColor.Size)
         {

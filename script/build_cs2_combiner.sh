@@ -7,7 +7,7 @@ APP_NAME="CS2 Combiner"
 BUNDLE_ID="com.ianmaclarty.CS2TextureCombiner"
 MIN_SYSTEM_VERSION="14.0"
 BUILD_CONFIGURATION="${CS2_COMBINER_BUILD_CONFIGURATION:-debug}"
-VERSION="0.2.2"
+VERSION="0.2.3"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"

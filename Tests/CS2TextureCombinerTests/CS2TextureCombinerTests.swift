@@ -144,7 +144,7 @@ final class CS2TextureCombinerTests: XCTestCase {
     }
 
     @MainActor
-    func testMainImportAcceptsOnly1K2KOr4KTextures() throws {
+    func testMainImportRejectsUnsupportedTextureSize() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("CS2MainImportSize-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -152,7 +152,7 @@ final class CS2TextureCombinerTests: XCTestCase {
 
         let invalid = root.appendingPathComponent("Brick_BaseColor.png")
         try ImageLoader.writePNG(
-            solid(PixelSize(width: 512, height: 512), red: 20, green: 40, blue: 60),
+            solid(PixelSize(width: 256, height: 256), red: 20, green: 40, blue: 60),
             to: invalid
         )
 
@@ -160,7 +160,7 @@ final class CS2TextureCombinerTests: XCTestCase {
         store.importDropped([invalid])
 
         XCTAssertNil(store.input(for: .baseColor))
-        XCTAssertTrue(store.status.contains("Main maps must be square 1K, 2K, or 4K"))
+        XCTAssertTrue(store.status.contains("Main maps must be square 512, 1024, 2048, or 4096 pixels"))
     }
 
     @MainActor
@@ -240,7 +240,7 @@ final class CS2TextureCombinerTests: XCTestCase {
     }
 
     func testBaseColorValidation() throws {
-        for dimension in [1024, 2048, 4096] {
+        for dimension in [512, 1024, 2048, 4096] {
             let size = PixelSize(width: dimension, height: dimension)
             let valid = InputMap(
                 slot: .baseColor,
@@ -260,9 +260,22 @@ final class CS2TextureCombinerTests: XCTestCase {
         let unsupportedMainSize = InputMap(
             slot: .baseColor,
             url: nonSquare.url,
-            size: PixelSize(width: 512, height: 512)
+            size: PixelSize(width: 256, height: 256)
         )
         XCTAssertThrowsError(try TexturePacking.validateBaseColor(unsupportedMainSize))
+    }
+
+    func testExportValidationRejectsUnsupportedBaseColorSize() {
+        let size = PixelSize(width: 256, height: 256)
+        let baseColor = InputMap(
+            slot: .baseColor,
+            url: URL(fileURLWithPath: "/tmp/BaseColor.png"),
+            size: size
+        )
+
+        XCTAssertThrowsError(
+            try TexturePacking.validateInputSizes([.baseColor: baseColor], targetSize: size)
+        )
     }
 
     func testMainExportDimensionsMatchImported1KTexture() throws {
@@ -299,8 +312,8 @@ final class CS2TextureCombinerTests: XCTestCase {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
 
-        let baseSize = PixelSize(width: 2, height: 2)
-        let opacitySize = PixelSize(width: 1, height: 1)
+        let baseSize = PixelSize(width: 512, height: 512)
+        let opacitySize = PixelSize(width: 256, height: 256)
         let baseURL = root.appendingPathComponent("Brick_BaseColor.png")
         let opacityURL = root.appendingPathComponent("Brick_Opacity.png")
         try ImageLoader.writePNG(solid(baseSize, red: 20, green: 40, blue: 60), to: baseURL)
@@ -320,7 +333,7 @@ final class CS2TextureCombinerTests: XCTestCase {
 
         XCTAssertThrowsError(try TexturePacking.export(plan)) { error in
             XCTAssertTrue(error.localizedDescription.contains("Textures are never resized"))
-            XCTAssertTrue(error.localizedDescription.contains("Opacity: 1 × 1"))
+            XCTAssertTrue(error.localizedDescription.contains("Opacity: 256 × 256"))
         }
         XCTAssertFalse(FileManager.default.fileExists(atPath: output.path))
         XCTAssertEqual(try Data(contentsOf: baseURL), baseBefore)
@@ -328,7 +341,7 @@ final class CS2TextureCombinerTests: XCTestCase {
     }
 
     func testPackingRejectsExportSizeDifferentFromImportedBaseColor() throws {
-        let size = PixelSize(width: 2, height: 2)
+        let size = PixelSize(width: 512, height: 512)
         let input = InputMap(
             slot: .baseColor,
             url: URL(fileURLWithPath: "/tmp/Brick_BaseColor.png"),
@@ -338,7 +351,7 @@ final class CS2TextureCombinerTests: XCTestCase {
         XCTAssertThrowsError(
             try TexturePacking.validateInputSizes(
                 [.baseColor: input],
-                targetSize: PixelSize(width: 1, height: 1)
+                targetSize: PixelSize(width: 1024, height: 1024)
             )
         ) { error in
             XCTAssertTrue(error.localizedDescription.contains("does not match the imported BaseColor size"))
@@ -545,7 +558,7 @@ final class CS2TextureCombinerTests: XCTestCase {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
 
-        let size = PixelSize(width: 1, height: 1)
+        let size = PixelSize(width: 512, height: 512)
         let baseURL = root.appendingPathComponent("Brick_BaseColor.png")
         let normalURL = root.appendingPathComponent("Brick_NormalGL.png")
         try ImageLoader.writePNG(solid(size, red: 20, green: 40, blue: 60), to: baseURL)

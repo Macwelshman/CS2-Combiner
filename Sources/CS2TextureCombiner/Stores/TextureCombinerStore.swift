@@ -84,7 +84,7 @@ final class TextureCombinerStore: ObservableObject {
 
         status = "Imported \(assigned) main map\(assigned == 1 ? "" : "s")."
         if !rejected.isEmpty {
-            status += " Skipped incompatible files: \(rejected.joined(separator: ", ")). Main maps must be square 1K, 2K, or 4K."
+            status += " Skipped incompatible files: \(rejected.joined(separator: ", ")). Main maps must be square 512, 1024, 2048, or 4096 pixels."
         }
     }
 
