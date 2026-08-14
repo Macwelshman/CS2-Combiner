@@ -405,8 +405,18 @@ final class CS2TextureCombinerTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(urls.count, 1)
-        XCTAssertEqual(try ImageLoader.dimensions(of: urls[0]), size)
+        XCTAssertEqual(urls.count, 2)
+        XCTAssertEqual(Set(urls.map(\.lastPathComponent)), Set([
+            "Brick_LOD2_BaseColor.png",
+            "Brick_LOD2_Normal.png"
+        ]))
+        for url in urls {
+            XCTAssertEqual(try ImageLoader.dimensions(of: url), size)
+        }
+        XCTAssertEqual(
+            try firstPixel(output.appendingPathComponent("Brick_LOD2_Normal.png")),
+            [128, 128, 255, 255]
+        )
     }
 
     func testExportsFiveCorrectlyPackedPNGs() throws {

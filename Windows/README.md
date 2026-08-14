@@ -33,8 +33,8 @@ dotnet run --project Windows/CS2Combiner.App/CS2Combiner.App.csproj
 
 The script tests the packing core and creates:
 
-- `dist/windows/CS2-Combiner-0.2.3-windows-arm64.zip`
-- `dist/windows/CS2-Combiner-0.2.3-windows-x64.zip`
+- `dist/windows/CS2-Combiner-0.2.4-windows-arm64.zip`
+- `dist/windows/CS2-Combiner-0.2.4-windows-x64.zip`
 
 Use the ARM64 build natively in a Windows 11 ARM UTM virtual machine. Use the
 x64 build to verify Windows 11 ARM's x64 compatibility and for conventional

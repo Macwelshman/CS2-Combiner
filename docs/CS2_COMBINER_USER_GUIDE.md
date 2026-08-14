@@ -59,7 +59,9 @@ already be exactly 512 x 512.
 
 ![LOD2 controls](assets/cs2-combiner-guide/lod2-attached.png)
 
-Available outputs are written only when their required inputs are assigned:
+Available outputs are written when their required inputs are assigned, except
+Normal, which is always exported as a flat OpenGL normal when no Normal input is
+assigned:
 
 - `<asset>_LOD2_BaseColor.png`
 - `<asset>_LOD2_ControlMask.png`

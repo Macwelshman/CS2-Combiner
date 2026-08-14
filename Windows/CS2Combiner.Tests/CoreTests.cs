@@ -294,7 +294,7 @@ public sealed class CoreTests
     }
 
     [Fact]
-    public void Lod2PackingUsesExactDimensionsAndOnlySuppliedOutputs()
+    public void Lod2PackingUsesExactDimensionsAndAlwaysExportsNormal()
     {
         using var temporary = new TemporaryFolder();
         var output = Path.Combine(temporary.Path, "Output");
@@ -313,9 +313,10 @@ public sealed class CoreTests
             output);
 
         var paths = Lod2TexturePacking.Export(plan);
-        Assert.Equal(2, paths.Count);
+        Assert.Equal(3, paths.Count);
         Assert.Equal([11, 0, 0, 0], FirstPixel(Path.Combine(output, "Brick_LOD2_ControlMask.png")));
         Assert.Equal([0, 0, 0, 178], FirstPixel(Path.Combine(output, "Brick_LOD2_MaskMap.png")));
+        Assert.Equal([128, 128, 255, 255], FirstPixel(Path.Combine(output, "Brick_LOD2_Normal.png")));
     }
 
     [Fact]

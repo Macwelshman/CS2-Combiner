@@ -94,7 +94,9 @@ public sealed class Lod2SlotViewModel(Lod2SetViewModel owner, Lod2Slot slot) : O
     public string ActionText => IsAssigned ? "Replace…" : "Assign…";
     public string Description => owner.Inputs.TryGetValue(Slot, out var path)
         ? $"{Path.GetFileName(path)} · {ImageCodec.Dimensions(path)}"
-        : "Not added — not exported";
+        : Slot == Lod2Slot.Normal
+            ? "Not added — flat normal exported"
+            : "Not added — not exported";
 
     public void Refresh()
     {

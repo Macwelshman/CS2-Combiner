@@ -9,7 +9,7 @@
     <ApplicationIcon>Assets/CS2Combiner.ico</ApplicationIcon>
     <Product>CS2 Combiner</Product>
     <Description>Pack exported material maps into Counter-Strike 2 texture sets.</Description>
-    <Version>0.2.3</Version>
+    <Version>0.2.4</Version>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>

@@ -176,7 +176,7 @@ public sealed record Lod2TextureExportPlan(
             if (Inputs.Keys.Any(slot => slot is Lod2Slot.ColorMask1 or Lod2Slot.ColorMask2 or Lod2Slot.ColorMask3))
                 suffixes.Add("ControlMask");
             if (Inputs.ContainsKey(Lod2Slot.Roughness)) suffixes.Add("MaskMap");
-            if (Inputs.ContainsKey(Lod2Slot.Normal)) suffixes.Add("Normal");
+            suffixes.Add("Normal");
             if (Inputs.ContainsKey(Lod2Slot.Emissive)) suffixes.Add("Emissive");
             return suffixes
                 .Select(suffix => Path.Combine(OutputDirectory, $"{AssetName}_LOD2_{suffix}.png"))

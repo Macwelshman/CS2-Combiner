@@ -325,6 +325,12 @@ def lod2(c, page):
         W - 2 * M,
     )
     draw_image(c, ASSETS / "lod2-attached.png", M, 390, W - 2 * M, 328)
+    # Keep the captured LOD2 UI aligned with the current flat-normal fallback.
+    c.setFillColor(colors.HexColor("#F6F6F6"))
+    c.rect(68, 484, 150, 10, fill=1, stroke=0)
+    c.setFillColor(colors.HexColor("#888888"))
+    c.setFont("Helvetica", 6.8)
+    c.drawString(69, 486, "Not added - flat normal exported")
 
     info_card(
         c,
@@ -357,7 +363,7 @@ def lod2(c, page):
             "<asset>_LOD2_BaseColor.png",
             "<asset>_LOD2_ControlMask.png",
             "<asset>_LOD2_MaskMap.png",
-            "<asset>_LOD2_Normal.png       (when assigned)",
+            "<asset>_LOD2_Normal.png       (always; flat by default)",
             "<asset>_LOD2_Emissive.png     (when assigned)",
         ],
     )

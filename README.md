@@ -73,9 +73,10 @@ never modified.
 ## LOD2
 
 LOD2 inputs must already be exactly 512 × 512. Maps are grouped by their shared
-asset name and only the combined outputs supported by the supplied inputs are
-written. By default, LOD2 output uses the same `CS2 Export` folder as the main
-textures.
+asset name. A 512 × 512 flat OpenGL normal (`128, 128, 255`) is always written
+when no LOD2 Normal input is assigned; the other combined outputs are written
+when their required inputs are supplied. By default, LOD2 output uses the same
+`CS2 Export` folder as the main textures.
 
 ## Build from source
 

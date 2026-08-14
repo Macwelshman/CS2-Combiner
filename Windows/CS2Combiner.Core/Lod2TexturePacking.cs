@@ -63,19 +63,17 @@ public static class Lod2TexturePacking
             outputs.Add(output);
         }
 
-        foreach (var (slot, suffix) in new[]
-                 {
-                     (Lod2Slot.Normal, "Normal"),
-                     (Lod2Slot.Emissive, "Emissive")
-                 })
-        {
-            if (!plan.Inputs.TryGetValue(slot, out var source))
-            {
-                continue;
-            }
+        var normal = plan.Inputs.TryGetValue(Lod2Slot.Normal, out var normalPath)
+            ? ImageCodec.Load(normalPath)
+            : ImageRaster.Solid(plan.TargetSize, 128, 128, 255);
+        var normalOutput = Output(plan, "Normal");
+        ImageCodec.WritePng(normal, normalOutput);
+        outputs.Add(normalOutput);
 
-            var output = Output(plan, suffix);
-            ImageCodec.WritePng(ImageCodec.Load(source), output);
+        if (plan.Inputs.TryGetValue(Lod2Slot.Emissive, out var emissivePath))
+        {
+            var output = Output(plan, "Emissive");
+            ImageCodec.WritePng(ImageCodec.Load(emissivePath), output);
             outputs.Add(output);
         }
 

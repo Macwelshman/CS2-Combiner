@@ -86,7 +86,9 @@ private struct LOD2SlotRow: View {
     }
 
     private var sourceDescription: String {
-        guard let sourceURL else { return "Not added — not exported" }
+        guard let sourceURL else {
+            return slot == .normal ? "Not added — flat normal exported" : "Not added — not exported"
+        }
         let size = (try? ImageLoader.dimensions(of: sourceURL)).map { " · \($0)" } ?? ""
         return sourceURL.lastPathComponent + size
     }
