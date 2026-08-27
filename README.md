@@ -1,7 +1,7 @@
 # CS2 Combiner
 
 CS2 Combiner is a desktop app for macOS and Windows that packs exported
-material maps into the main and LOD2 PNG textures used by this Source 2
+material maps into the main and LOD2 PNG textures used by this Cities: Skylines 2
 workflow.
 
 ## Download
