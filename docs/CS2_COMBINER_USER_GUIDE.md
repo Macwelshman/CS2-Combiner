@@ -3,35 +3,32 @@
 The polished, screenshot-based edition is available as
 [CS2-Combiner-User-Guide.pdf](../output/pdf/CS2-Combiner-User-Guide.pdf).
 
-## Importing
+The screenshots show the macOS app. The Windows app presents the same profiles,
+slots, warnings, and export choices with native Windows controls.
 
-Drop one or more exported texture maps, drop a whole folder, or choose
-**Add Maps...** / **Add Folder...**. Recognised filenames fill their matching
-slots automatically. Drop a file directly on a row or use **Assign...** /
-**Replace...** for manual assignment.
+## Getting started
 
-![Import controls](assets/cs2-combiner-guide/import-drop.png)
+Choose **Building**, **Surface**, or **Decal** before importing. Drop exported
+maps, drop a whole folder, or choose **Add Maps...** / **Add Folder...**.
+Recognised filenames fill matching slots automatically. Drop a file directly on
+a row or use **Assign...** / **Replace...** for manual assignment.
+
+![Building texture workflow](assets/cs2-combiner-guide/building-top-current.png)
 
 Accepted dimensions:
 
-- Main textures must be square 512, 1024, 2048, or 4096 pixel images.
-- LOD2 textures must be exactly 512 x 512.
-- Imported textures are never resized.
+- Building and Decal main textures: square 512, 1024, 2048, or 4096 pixels.
+- Surface textures: square 512, 1024, or 2048 pixels.
+- Building LOD2 textures: exactly 512 x 512 pixels.
+- All assigned maps in a set must match BaseColor. Textures are never resized.
 
-## Texture Slots
+If filenames from another profile are detected, the app warns before switching
+or importing them into the current profile.
 
-BaseColor is required for a main export. All other slots are optional.
+## Building
 
-Select the asset profile before importing:
-
-- **Building** writes BaseColor, ControlMask, MaskMap, Normal, and Emissive and
-  supports LOD2.
-- **Surface** writes BaseColor, its Surface-specific MaskMap, and Normal.
-- **Decal** writes the required BaseColor, MaskMap, and Normal. ControlMask and
-  Emissive are hidden under **Experimental maps (untested)** and are written
-  only after that section is deliberately opened and a source slot is supplied.
-
-![Main texture slots](assets/cs2-combiner-guide/texture-slots.png)
+Building is the full five-texture workflow and the only profile with LOD2.
+BaseColor is required; other inputs use safe packed-channel defaults when absent.
 
 | Group | Inputs | Packed result |
 |---|---|---|
@@ -40,95 +37,84 @@ Select the asset profile before importing:
 | Mask Map | Metallic, Coat, Roughness | Red, green, black, inverse Roughness |
 | Surface | Normal, Emissive | OpenGL Normal RGB and Emissive RGB |
 
-Every assigned main map must match the imported BaseColor dimensions. A
-mismatch stops export instead of resampling a source.
+The main export writes `<asset>_BaseColor.png`, `_ControlMask.png`,
+`_MaskMap.png`, `_Normal.png`, and `_Emissive.png`.
 
-## Opacity & Normals
+## Surface
+
+Surface is for tiling materials. It writes BaseColor, MaskMap, and Normal and
+does not support ControlMask, Emissive, or LOD2.
+
+![Surface texture workflow](assets/cs2-combiner-guide/surface-current.png)
+
+Surface MaskMap channels are:
+
+| Channel | Source |
+|---|---|
+| Red | Metallic |
+| Green | Metallic Mask, white when absent |
+| Blue | Normal Mask, white when absent |
+| Alpha | Inverse Roughness |
+
+## Decal
+
+Decal keeps the tested inputs prominent: BaseColor, Opacity, Metallic, Coat,
+Roughness, and Normal. BaseColor is required. The standard export writes
+BaseColor, MaskMap, and Normal.
+
+![Decal with experimental inputs collapsed](assets/cs2-combiner-guide/decal-collapsed-current.png)
+
+**Experimental maps (untested)** contains ColorMask1-3, Snow Remove, and
+Emissive. The CS2 guide states these decal textures have not been tested and may
+not work as expected. ControlMask and Emissive are written only when this
+section is deliberately opened and matching sources are supplied.
+
+![Decal experimental inputs expanded](assets/cs2-combiner-guide/decal-expanded-current.png)
+
+## Opacity and normals
 
 The live Opacity row identifies the active export source.
 
-![Opacity controls](assets/cs2-combiner-guide/opacity-controls-attached.png)
-
 - Embedded BaseColor alpha normally takes precedence.
-- An Opacity map is used when BaseColor has no alpha.
+- An Opacity map is used when BaseColor has no usable alpha.
 - **Override BaseColor alpha** makes an assigned Opacity map take precedence.
 - With no usable source, BaseColor exports as opaque.
 
-![Normalise control](assets/cs2-combiner-guide/normalise-controls-attached.png)
-
 Enable **Normalise** to correct Normal vectors to unit length while writing the
-exported Normal texture. The assigned source is never modified, replaced, or
-saved as a separate normalised copy. Leave the checkbox off to preserve the
-imported OpenGL Normal RGB values.
+exported Normal texture. The assigned source is never modified. Leave the
+checkbox off to preserve the imported OpenGL Normal RGB values. If Normal is
+absent, the app creates a flat OpenGL normal output.
 
-## LOD2
+## Building LOD2
 
-LOD2 maps are grouped by their shared asset name. Every accepted input must
-already be exactly 512 x 512.
+LOD2 maps are grouped by their shared asset name. Every input must already be
+512 x 512 pixels.
 
-![LOD2 controls](assets/cs2-combiner-guide/lod2-attached.png)
+![Building LOD2 workflow](assets/cs2-combiner-guide/building-middle-current.png)
 
-Available outputs are written when their required inputs are assigned, except
-Normal, which is always exported as a flat OpenGL normal when no Normal input is
-assigned:
-
-- `<asset>_LOD2_BaseColor.png`
-- `<asset>_LOD2_ControlMask.png`
-- `<asset>_LOD2_MaskMap.png`
-- `<asset>_LOD2_Normal.png`
-- `<asset>_LOD2_Emissive.png`
-
-Keep **Export in the main texture folder** enabled to place LOD2 output beside
-the main set, or choose a separate LOD2 location.
+The LOD2 set can contain BaseColor, ControlMask, MaskMap, Normal, and Emissive.
+Normal is written as a flat OpenGL normal when its source is absent; Emissive is
+written when assigned. Keep **Export in the main texture folder** enabled to
+place LOD2 beside the main set, or select a separate location.
 
 ## Exporting
 
 BaseColor supplies the asset name and native output dimensions. By default, the
-app creates and writes into `CS2 Export` inside the folder containing
-BaseColor. Choosing another location writes directly into that selected folder.
+app creates `CS2 Export` inside the BaseColor source folder. A custom location
+writes directly into the selected folder.
 
-![Export controls](assets/cs2-combiner-guide/export-controls.png)
-
-The Building main export writes:
-
-- `<asset>_BaseColor.png`
-- `<asset>_ControlMask.png`
-- `<asset>_MaskMap.png`
-- `<asset>_Normal.png`
-- `<asset>_Emissive.png`
-
-Surface writes BaseColor, MaskMap, and Normal. Decal writes those same three
-filenames using the Decal channel layout; it adds ControlMask or Emissive only
-when those optional inputs are assigned.
-
-Choose **Export Main**, **Export LOD2**, or **Export All**. Resolve any size
-mismatch, review existing filenames, and approve replacement only when
-intended. Complete PNGs are staged before replacing an existing set.
-
-**Export All** appears only when both a main BaseColor and at least one LOD2 set
-are assigned. With LOD2 maps alone, use **Export LOD2**.
+Choose the export button shown for the active profile. Building also offers
+**Export LOD2** and **Export All** when appropriate. Resolve size mismatches,
+review existing filenames, and approve replacement only when intended. Complete
+PNGs are staged before an existing set is replaced.
 
 ## Updates
 
-CS2 Combiner checks for a newer stable release when it opens. When one is
-available, use **Update Now** to download, verify, install, and reopen the app.
-Use **View Release** to review the release first, or **Later** to dismiss the
-notification for the current session. A manual **Check for Updates…** control
-is also available.
+CS2 Combiner checks for a newer stable release when it opens. **Update Now**
+downloads the matching package, verifies its published SHA-256 digest and
+version, installs it, and reopens the app. **Check for Updates...** is also
+available manually.
 
-Downloaded updates are installed only when their published GitHub SHA-256
-digest and packaged version match. The app must be running from a folder it can
-write to.
-
-## Common Workflows
-
-- **Import a folder:** drop it once and review the detected main and LOD2 slots.
-- **Assign manually:** drop on a row or use **Assign...** / **Replace...**.
-- **Use BaseColor alpha:** leave the override off and confirm the live status.
-- **Use an Opacity map:** enable the override only when it should take priority.
-- **Normalise on export:** enable **Normalise** on the Normal row.
-- **Resolve a mismatch:** prepare matching 512, 1024, 2048, or 4096 pixel main maps.
-- **Keep outputs together:** use **Export All** with the main folder option.
-
-If an output already exists in the destination, the app lists it and asks
-before replacing it.
+Windows Smart App Control may block an independently distributed unsigned build
+because it cannot verify the publisher. Code signing avoids that warning; it is
+not a texture-export error.
