@@ -17,6 +17,8 @@ public enum MapSlot
     ColorMask3,
     SnowRemove,
     Metallic,
+    MetallicMask,
+    NormalMask,
     Coat,
     Roughness,
     Normal,
@@ -36,6 +38,8 @@ public static class MapSlotInfo
         MapSlot.ColorMask3 => "ColorMask3",
         MapSlot.SnowRemove => "Snow Remove",
         MapSlot.Metallic => "Metallic",
+        MapSlot.MetallicMask => "Metallic Mask",
+        MapSlot.NormalMask => "Normal Mask",
         MapSlot.Coat => "Coat",
         MapSlot.Roughness => "Roughness",
         MapSlot.Normal => "Normal",
@@ -52,11 +56,95 @@ public static class MapSlotInfo
         MapSlot.ColorMask3 => "ControlMask Blue · default black",
         MapSlot.SnowRemove => "ControlMask Alpha · default black",
         MapSlot.Metallic => "MaskMap Red · default black",
+        MapSlot.MetallicMask => "MaskMap Green · default white",
+        MapSlot.NormalMask => "MaskMap Blue · default white",
         MapSlot.Coat => "MaskMap Green · default black",
         MapSlot.Roughness => "MaskMap Alpha · inverted · default rough",
         MapSlot.Normal => "Normal RGB · default neutral",
         MapSlot.Emissive => "Emissive RGB · default black",
         _ => string.Empty
+    };
+}
+
+public enum AssetType
+{
+    Building,
+    Surface,
+    Decal
+}
+
+public sealed record AssetProfileGroup(
+    string Title,
+    IReadOnlyList<MapSlot> Slots,
+    bool ShowsOpacitySource = false);
+
+public sealed record AssetProfile(
+    AssetType Type,
+    string Description,
+    IReadOnlyList<AssetProfileGroup> Groups,
+    IReadOnlyList<string> OutputSuffixes,
+    IReadOnlyList<int> AllowedSizes,
+    bool SupportsLod2,
+    bool CanExport)
+{
+    public IReadOnlySet<MapSlot> SupportedSlots =>
+        Groups.SelectMany(group => group.Slots)
+            .Concat(Type == AssetType.Decal ? AssetProfiles.DecalExperimentalSlots : [])
+            .ToHashSet();
+
+    public string TextureHeading => $"{Type} texture maps";
+
+    public string SizeDescription => Type == AssetType.Surface
+        ? "Surface maps must match at 512, 1024, or 2048 pixels. Textures are never resized."
+        : "Maps must match at 512, 1024, 2048, or 4096 pixels. Textures are never resized.";
+}
+
+public static class AssetProfiles
+{
+    public static IReadOnlyList<AssetType> AllTypes { get; } = Enum.GetValues<AssetType>();
+    public static IReadOnlyList<MapSlot> DecalExperimentalSlots { get; } =
+        [MapSlot.ColorMask1, MapSlot.ColorMask2, MapSlot.ColorMask3, MapSlot.SnowRemove, MapSlot.Emissive];
+
+    public static AssetProfile For(AssetType type) => type switch
+    {
+        AssetType.Building => new(
+            type,
+            "Five packed textures with optional building LOD2 sets.",
+            [
+                new("BaseColor", [MapSlot.BaseColor, MapSlot.Opacity], true),
+                new("Control Mask", [MapSlot.ColorMask1, MapSlot.ColorMask2, MapSlot.ColorMask3, MapSlot.SnowRemove]),
+                new("Mask Map", [MapSlot.Metallic, MapSlot.Coat, MapSlot.Roughness]),
+                new("Surface", [MapSlot.Normal, MapSlot.Emissive])
+            ],
+            ["BaseColor", "ControlMask", "MaskMap", "Normal", "Emissive"],
+            [512, 1024, 2048, 4096],
+            true,
+            true),
+        AssetType.Surface => new(
+            type,
+            "Three tiling textures with the surface-specific MaskMap layout.",
+            [
+                new("BaseColor", [MapSlot.BaseColor, MapSlot.Opacity], true),
+                new("Mask Map", [MapSlot.Metallic, MapSlot.MetallicMask, MapSlot.NormalMask, MapSlot.Roughness]),
+                new("Normal", [MapSlot.Normal])
+            ],
+            ["BaseColor", "MaskMap", "Normal"],
+            [512, 1024, 2048],
+            false,
+            true),
+        AssetType.Decal => new(
+            type,
+            "Three required decal textures, with ControlMask and Emissive written only when supplied.",
+            [
+                new("BaseColor", [MapSlot.BaseColor, MapSlot.Opacity], true),
+                new("Mask Map", [MapSlot.Metallic, MapSlot.Coat, MapSlot.Roughness]),
+                new("Normal", [MapSlot.Normal])
+            ],
+            ["BaseColor", "MaskMap", "Normal"],
+            [512, 1024, 2048, 4096],
+            false,
+            true),
+        _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
     };
 }
 
@@ -146,13 +234,34 @@ public sealed record TextureExportPlan(
     string OutputDirectory,
     string AssetName,
     bool OpacityMapOverridesBaseColorAlpha = false,
-    bool NormalizeNormalOnExport = false)
+    bool NormalizeNormalOnExport = false,
+    AssetType Profile = AssetType.Building)
 {
     public static IReadOnlyList<string> OutputSuffixes { get; } =
         ["BaseColor", "ControlMask", "MaskMap", "Normal", "Emissive"];
 
-    public IReadOnlyList<string> OutputNames =>
-        OutputSuffixes.Select(OutputName).ToArray();
+    public IReadOnlyList<string> ActiveOutputSuffixes
+    {
+        get
+        {
+            var suffixes = AssetProfiles.For(Profile).OutputSuffixes.ToList();
+            if (Profile != AssetType.Decal)
+            {
+                return suffixes;
+            }
+            if (Inputs.Keys.Any(slot => slot is MapSlot.ColorMask1 or MapSlot.ColorMask2 or MapSlot.ColorMask3 or MapSlot.SnowRemove))
+            {
+                suffixes.Insert(1, "ControlMask");
+            }
+            if (Inputs.ContainsKey(MapSlot.Emissive))
+            {
+                suffixes.Add("Emissive");
+            }
+            return suffixes;
+        }
+    }
+
+    public IReadOnlyList<string> OutputNames => ActiveOutputSuffixes.Select(OutputName).ToArray();
 
     public IReadOnlyList<string> OutputPaths =>
         OutputNames.Select(name => Path.Combine(OutputDirectory, name)).ToArray();

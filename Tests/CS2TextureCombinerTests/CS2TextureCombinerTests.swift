@@ -4,6 +4,60 @@ import XCTest
 @testable import CS2TextureCombiner
 
 final class CS2TextureCombinerTests: XCTestCase {
+    func testAssetProfilesKeepBuildingAsTheDefaultContract() {
+        XCTAssertEqual(AssetType.allCases, [.building, .surface, .decal])
+        XCTAssertEqual(
+            AssetType.building.outputSuffixes,
+            TextureExportPlan.outputSuffixes
+        )
+        XCTAssertEqual(AssetType.building.allowedSizes, [512, 1024, 2048, 4096])
+        XCTAssertTrue(AssetType.building.supportsLOD2)
+        XCTAssertTrue(AssetType.building.canExport)
+    }
+
+    func testSurfaceAndDecalProfilesDescribeTheirDistinctContracts() {
+        XCTAssertEqual(AssetType.surface.outputSuffixes, ["BaseColor", "MaskMap", "Normal"])
+        XCTAssertEqual(AssetType.surface.allowedSizes, [512, 1024, 2048])
+        XCTAssertEqual(
+            AssetType.surface.groups.first(where: { $0.title == "Mask Map" })?.slots,
+            [.metallic, .metallicMask, .normalMask, .roughness]
+        )
+        XCTAssertFalse(AssetType.surface.supportsLOD2)
+        XCTAssertTrue(AssetType.surface.canExport)
+
+        XCTAssertEqual(AssetType.decal.outputSuffixes, ["BaseColor", "MaskMap", "Normal"])
+        XCTAssertEqual(AssetType.decal.allowedSizes, [512, 1024, 2048, 4096])
+        XCTAssertFalse(AssetType.decal.groups.contains { $0.title == "Optional Maps" })
+        XCTAssertEqual(AssetType.decal.experimentalSlots, [.cm1, .cm2, .cm3, .snowRemove, .emissive])
+        XCTAssertFalse(AssetType.decal.supportsLOD2)
+        XCTAssertTrue(AssetType.decal.canExport)
+    }
+
+    func testUpdateVersionComparisonAndAssetSelection() throws {
+        XCTAssertGreaterThan(try XCTUnwrap(AppVersion("v0.2.10")), try XCTUnwrap(AppVersion("0.2.4")))
+        XCTAssertEqual(AppVersion("0.3"), AppVersion("0.3.0"))
+        XCTAssertEqual(AppVersion("0.3.0+build.4"), AppVersion("0.3.0"))
+
+        let json = """
+        {
+          "tag_name": "v0.3.0",
+          "name": "CS2 Combiner 0.3.0",
+          "body": "Update system",
+          "html_url": "https://example.com/release",
+          "draft": false,
+          "prerelease": false,
+          "assets": [{
+            "name": "CS2-Combiner-0.3.0-macos.zip",
+            "browser_download_url": "https://example.com/mac.zip",
+            "digest": "sha256:abc"
+          }]
+        }
+        """
+        let release = try JSONDecoder().decode(GitHubRelease.self, from: Data(json.utf8))
+        XCTAssertEqual(release.version, AppVersion("0.3.0"))
+        XCTAssertEqual(release.macOSAsset()?.name, "CS2-Combiner-0.3.0-macos.zip")
+    }
+
     func testExportAllRequiresBothMainBaseColorAndLOD2Maps() {
         XCTAssertFalse(
             ExportAvailability.showsExportAll(hasBaseColor: false, hasLOD2Sets: true)
@@ -190,9 +244,26 @@ final class CS2TextureCombinerTests: XCTestCase {
         XCTAssertEqual(MapDetector.slot(for: URL(fileURLWithPath: "/tmp/wall_Color_Mask_Two.png")), .cm2)
         XCTAssertEqual(MapDetector.slot(for: URL(fileURLWithPath: "/tmp/wall_colour-mask-three.png")), .cm3)
         XCTAssertEqual(MapDetector.slot(for: URL(fileURLWithPath: "/tmp/wall_Snow_Remove.png")), .snowRemove)
+        XCTAssertEqual(MapDetector.slot(for: URL(fileURLWithPath: "/tmp/wall_MetallicMask.png")), .metallicMask)
+        XCTAssertEqual(MapDetector.slot(for: URL(fileURLWithPath: "/tmp/wall_Normal_Mask.png")), .normalMask)
         XCTAssertEqual(MapDetector.slot(for: URL(fileURLWithPath: "/tmp/wall_NormalGL.png")), .normal)
         XCTAssertTrue(MapDetector.isDirectXNormal(URL(fileURLWithPath: "/tmp/wall_NormalDX.png")))
         XCTAssertNil(MapDetector.slot(for: URL(fileURLWithPath: "/tmp/notes.png")))
+    }
+
+    func testSurfaceOnlyMapDetectionAvoidsSharedMapFalsePositives() {
+        let urls = [
+            URL(fileURLWithPath: "/tmp/Paving_BaseColor.png"),
+            URL(fileURLWithPath: "/tmp/Paving_Roughness.png"),
+            URL(fileURLWithPath: "/tmp/Paving_NormalGL.png"),
+            URL(fileURLWithPath: "/tmp/Paving_MetallicMask.png"),
+            URL(fileURLWithPath: "/tmp/Paving_Normal_Mask.png")
+        ]
+
+        XCTAssertEqual(
+            MapDetector.surfaceOnlyMapURLs(in: urls).map(\.lastPathComponent),
+            ["Paving_MetallicMask.png", "Paving_Normal_Mask.png"]
+        )
     }
 
     func testAssetNameAndDefaultExportFolder() {
@@ -477,6 +548,268 @@ final class CS2TextureCombinerTests: XCTestCase {
         XCTAssertEqual(try firstPixel(output.appendingPathComponent("Brick_Wall_v2_MaskMap.png")), [55, 66, 0, 178])
         XCTAssertEqual(try firstPixel(output.appendingPathComponent("Brick_Wall_v2_Normal.png")), [128, 128, 255, 255])
         XCTAssertEqual(try firstPixel(output.appendingPathComponent("Brick_Wall_v2_Emissive.png")), [8, 9, 10, 255])
+    }
+
+    func testSurfaceExportsThreeCorrectlyPackedPNGs() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CS2SurfacePacking-\(UUID().uuidString)", isDirectory: true)
+        let output = root.appendingPathComponent("Output", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let size = PixelSize(width: 512, height: 512)
+        let values: [MapSlot: (UInt8, UInt8, UInt8)] = [
+            .baseColor: (20, 40, 60),
+            .opacity: (70, 0, 0),
+            .metallic: (55, 0, 0),
+            .metallicMask: (66, 0, 0),
+            .normalMask: (77, 0, 0),
+            .roughness: (88, 0, 0)
+        ]
+        var inputs: [MapSlot: InputMap] = [:]
+        for (slot, value) in values {
+            let url = root.appendingPathComponent("\(slot.rawValue).png")
+            if slot == .baseColor {
+                try writeRGBPNG(size, red: value.0, green: value.1, blue: value.2, to: url)
+            } else {
+                try ImageLoader.writePNG(
+                    solid(size, red: value.0, green: value.1, blue: value.2),
+                    to: url
+                )
+            }
+            inputs[slot] = InputMap(slot: slot, url: url, size: size)
+        }
+
+        let plan = TextureExportPlan(
+            inputs: inputs,
+            targetSize: size,
+            outputDirectory: output,
+            assetName: "Gravel",
+            assetType: .surface
+        )
+        XCTAssertEqual(
+            plan.outputNames,
+            ["Gravel_BaseColor.png", "Gravel_MaskMap.png", "Gravel_Normal.png"]
+        )
+        XCTAssertEqual(try TexturePacking.export(plan).count, 3)
+        XCTAssertEqual(try firstPixel(output.appendingPathComponent("Gravel_BaseColor.png")), [20, 40, 60, 70])
+        XCTAssertEqual(try firstPixel(output.appendingPathComponent("Gravel_MaskMap.png")), [55, 66, 77, 167])
+        XCTAssertEqual(try firstPixel(output.appendingPathComponent("Gravel_Normal.png")), [128, 128, 255, 255])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: output.appendingPathComponent("Gravel_ControlMask.png").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: output.appendingPathComponent("Gravel_Emissive.png").path))
+    }
+
+    func testSurfaceSafeDefaultsAndSizeLimit() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CS2SurfaceDefaults-\(UUID().uuidString)", isDirectory: true)
+        let output = root.appendingPathComponent("Output", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let size = PixelSize(width: 512, height: 512)
+        let baseURL = root.appendingPathComponent("Sand_BaseColor.png")
+        try writeRGBPNG(size, red: 90, green: 80, blue: 70, to: baseURL)
+        let plan = TextureExportPlan(
+            inputs: [.baseColor: InputMap(slot: .baseColor, url: baseURL, size: size)],
+            targetSize: size,
+            outputDirectory: output,
+            assetName: "Sand",
+            assetType: .surface
+        )
+
+        _ = try TexturePacking.export(plan)
+        XCTAssertEqual(
+            Array(try TexturePacking.surfaceMaskRaster(plan).bytes.prefix(4)),
+            [0, 255, 255, 0]
+        )
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: output.appendingPathComponent("Sand_MaskMap.png").path)
+        )
+        XCTAssertThrowsError(
+            try TexturePacking.validateMainInputSize(
+                PixelSize(width: 4096, height: 4096),
+                name: "BaseColor",
+                assetType: .surface
+            )
+        )
+    }
+
+    func testDecalExportsRequiredAndSuppliedOptionalPNGs() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CS2DecalPacking-\(UUID().uuidString)", isDirectory: true)
+        let output = root.appendingPathComponent("Output", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let size = PixelSize(width: 512, height: 512)
+        let values: [MapSlot: (UInt8, UInt8, UInt8)] = [
+            .baseColor: (20, 40, 60),
+            .opacity: (70, 0, 0),
+            .cm1: (11, 0, 0),
+            .metallic: (55, 0, 0),
+            .coat: (66, 0, 0),
+            .roughness: (77, 0, 0),
+            .emissive: (8, 9, 10)
+        ]
+        var inputs: [MapSlot: InputMap] = [:]
+        for (slot, value) in values {
+            let url = root.appendingPathComponent("\(slot.rawValue).png")
+            if slot == .baseColor {
+                try writeRGBPNG(size, red: value.0, green: value.1, blue: value.2, to: url)
+            } else {
+                try ImageLoader.writePNG(
+                    solid(size, red: value.0, green: value.1, blue: value.2),
+                    to: url
+                )
+            }
+            inputs[slot] = InputMap(slot: slot, url: url, size: size)
+        }
+
+        let plan = TextureExportPlan(
+            inputs: inputs,
+            targetSize: size,
+            outputDirectory: output,
+            assetName: "RoadMarking",
+            assetType: .decal
+        )
+        XCTAssertEqual(plan.outputSuffixes, ["BaseColor", "ControlMask", "MaskMap", "Normal", "Emissive"])
+        XCTAssertEqual(try TexturePacking.export(plan).count, 5)
+        XCTAssertEqual(try firstPixel(output.appendingPathComponent("RoadMarking_BaseColor.png")), [20, 40, 60, 70])
+        XCTAssertEqual(Array(try TexturePacking.controlMaskRaster(plan).bytes.prefix(4)), [11, 0, 0, 0])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: output.appendingPathComponent("RoadMarking_ControlMask.png").path))
+        XCTAssertEqual(try firstPixel(output.appendingPathComponent("RoadMarking_MaskMap.png")), [55, 66, 0, 178])
+        XCTAssertEqual(try firstPixel(output.appendingPathComponent("RoadMarking_Normal.png")), [128, 128, 255, 255])
+        XCTAssertEqual(try firstPixel(output.appendingPathComponent("RoadMarking_Emissive.png")), [8, 9, 10, 255])
+
+        let minimal = TextureExportPlan(
+            inputs: [.baseColor: try XCTUnwrap(inputs[.baseColor])],
+            targetSize: size,
+            outputDirectory: output,
+            assetName: "MinimalDecal",
+            assetType: .decal
+        )
+        XCTAssertEqual(minimal.outputSuffixes, ["BaseColor", "MaskMap", "Normal"])
+        XCTAssertEqual(try TexturePacking.export(minimal).count, 3)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: output.appendingPathComponent("MinimalDecal_ControlMask.png").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: output.appendingPathComponent("MinimalDecal_Emissive.png").path))
+    }
+
+    @MainActor
+    func testSurfaceStoreExportActionWritesAllOutputs() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CS2SurfaceStoreExport-\(UUID().uuidString)", isDirectory: true)
+        let output = root.appendingPathComponent("Chosen Output", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let baseURL = root.appendingPathComponent("Paving_BaseColor.png")
+        try writeRGBPNG(
+            PixelSize(width: 512, height: 512),
+            red: 90,
+            green: 80,
+            blue: 70,
+            to: baseURL
+        )
+
+        let store = TextureCombinerStore()
+        store.selectedAssetType = .surface
+        store.assignDropped([baseURL], to: .baseColor)
+        store.setCustomExportRoot(output)
+        XCTAssertTrue(store.canExport)
+
+        let completed = expectation(description: "Surface export completes")
+        var succeeded = false
+        store.export { result in
+            succeeded = result
+            completed.fulfill()
+        }
+        await fulfillment(of: [completed], timeout: 10)
+
+        XCTAssertTrue(succeeded)
+        XCTAssertFalse(store.isWorking)
+        XCTAssertEqual(store.lastExportedURLs.map(\.lastPathComponent).sorted(), [
+            "Paving_BaseColor.png",
+            "Paving_MaskMap.png",
+            "Paving_Normal.png"
+        ])
+        XCTAssertTrue(store.lastExportedURLs.allSatisfy {
+            FileManager.default.fileExists(atPath: $0.path)
+        })
+    }
+
+    @MainActor
+    func testDecalStoreExportActionWritesRequiredOutputs() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CS2DecalStoreExport-\(UUID().uuidString)", isDirectory: true)
+        let output = root.appendingPathComponent("Chosen Output", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let baseURL = root.appendingPathComponent("PaintMark_BaseColor.png")
+        try writeRGBPNG(
+            PixelSize(width: 512, height: 512),
+            red: 90,
+            green: 80,
+            blue: 70,
+            to: baseURL
+        )
+
+        let store = TextureCombinerStore()
+        store.selectedAssetType = .decal
+        store.assignDropped([baseURL], to: .baseColor)
+        store.setCustomExportRoot(output)
+        XCTAssertTrue(store.canExport)
+
+        let completed = expectation(description: "Decal export completes")
+        var succeeded = false
+        store.export { result in
+            succeeded = result
+            completed.fulfill()
+        }
+        await fulfillment(of: [completed], timeout: 10)
+
+        XCTAssertTrue(succeeded)
+        XCTAssertEqual(store.lastExportedURLs.map(\.lastPathComponent).sorted(), [
+            "PaintMark_BaseColor.png",
+            "PaintMark_MaskMap.png",
+            "PaintMark_Normal.png"
+        ])
+    }
+
+    @MainActor
+    func testDecalStoreRequiresExplicitExperimentalEnablement() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CS2DecalExperimentalExport-\(UUID().uuidString)", isDirectory: true)
+        let requiredOutput = root.appendingPathComponent("Required Only", isDirectory: true)
+        let experimentalOutput = root.appendingPathComponent("Experimental Enabled", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let size = PixelSize(width: 512, height: 512)
+        let baseURL = root.appendingPathComponent("Marking_BaseColor.png")
+        let emissiveURL = root.appendingPathComponent("Marking_Emissive.png")
+        try writeRGBPNG(size, red: 30, green: 40, blue: 50, to: baseURL)
+        try ImageLoader.writePNG(solid(size, red: 8, green: 9, blue: 10), to: emissiveURL)
+
+        let store = TextureCombinerStore()
+        store.assignDropped([baseURL], to: .baseColor)
+        store.assignDropped([emissiveURL], to: .emissive)
+        store.selectedAssetType = .decal
+        store.setCustomExportRoot(requiredOutput)
+
+        let requiredCompleted = expectation(description: "Required decal export completes")
+        store.export { _ in requiredCompleted.fulfill() }
+        await fulfillment(of: [requiredCompleted], timeout: 10)
+        XCTAssertEqual(store.lastExportedURLs.count, 3)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: requiredOutput.appendingPathComponent("Marking_Emissive.png").path))
+
+        store.enableExperimentalDecalMaps()
+        store.setCustomExportRoot(experimentalOutput)
+        let experimentalCompleted = expectation(description: "Experimental decal export completes")
+        store.export { _ in experimentalCompleted.fulfill() }
+        await fulfillment(of: [experimentalCompleted], timeout: 10)
+        XCTAssertEqual(store.lastExportedURLs.count, 4)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: experimentalOutput.appendingPathComponent("Marking_Emissive.png").path))
     }
 
     func testEmbeddedBaseColorAlphaOverridesOpacityMap() throws {

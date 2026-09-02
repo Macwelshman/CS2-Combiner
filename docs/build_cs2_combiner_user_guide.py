@@ -453,6 +453,7 @@ def common_workflows(c, page):
         ("Resolve a size mismatch", "Prepare matching 512, 1024, 2048, or 4096 px main maps. LOD2 inputs must be 512 x 512."),
         ("Replace existing exports", "Review the listed filenames, then replace them or cancel without changing the existing set."),
         ("Keep outputs together", "Use Export All with the main texture folder enabled. It appears only when main and LOD2 maps are both assigned."),
+        ("Install an update", "Use Update Now when the app reports a new release. The download and version are verified before restart."),
     ]
     card_width = 248
     card_height = 88

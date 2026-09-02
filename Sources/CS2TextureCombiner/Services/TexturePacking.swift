@@ -1,26 +1,42 @@
 import Foundation
 
 enum TexturePacking {
-    static func validateBaseColor(_ input: InputMap?) throws -> PixelSize {
+    static func validateBaseColor(
+        _ input: InputMap?,
+        assetType: AssetType = .building
+    ) throws -> PixelSize {
         guard let input else { throw CombinerError.baseColorRequired }
-        try validateMainInputSize(input.size, name: input.slot.title)
+        try validateMainInputSize(input.size, name: input.slot.title, assetType: assetType)
         return input.size
     }
 
-    static func validateMainInputSize(_ size: PixelSize, name: String) throws {
-        guard size.isSquare, [512, 1024, 2048, 4096].contains(size.width) else {
+    static func validateMainInputSize(
+        _ size: PixelSize,
+        name: String,
+        assetType: AssetType = .building
+    ) throws {
+        guard size.isSquare, assetType.allowedSizes.contains(size.width) else {
+            if assetType != .building {
+                throw CombinerError.invalidProfileTextureSize(
+                    profile: assetType.rawValue,
+                    name: name,
+                    size: size,
+                    allowed: assetType.allowedSizes
+                )
+            }
             throw CombinerError.invalidMainTextureSize(name: name, size: size)
         }
     }
 
     static func validateInputSizes(
         _ inputs: [MapSlot: InputMap],
-        targetSize: PixelSize
+        targetSize: PixelSize,
+        assetType: AssetType = .building
     ) throws {
         guard let baseColor = inputs[.baseColor] else {
             throw CombinerError.baseColorRequired
         }
-        try validateMainInputSize(baseColor.size, name: baseColor.slot.title)
+        try validateMainInputSize(baseColor.size, name: baseColor.slot.title, assetType: assetType)
         guard targetSize == baseColor.size else {
             throw CombinerError.exportSizeMismatch(
                 imported: baseColor.size,
@@ -41,7 +57,11 @@ enum TexturePacking {
     }
 
     static func export(_ plan: TextureExportPlan) throws -> [URL] {
-        try validateInputSizes(plan.inputs, targetSize: plan.targetSize)
+        try validateInputSizes(
+            plan.inputs,
+            targetSize: plan.targetSize,
+            assetType: plan.assetType
+        )
 
         let fileManager = FileManager.default
         try fileManager.createDirectory(
@@ -60,22 +80,43 @@ enum TexturePacking {
             plan,
             to: staging.appendingPathComponent(plan.outputName(suffix: "BaseColor"))
         )
-        try writeControlMask(
-            plan,
-            to: staging.appendingPathComponent(plan.outputName(suffix: "ControlMask"))
-        )
-        try writeMaskMap(
-            plan,
-            to: staging.appendingPathComponent(plan.outputName(suffix: "MaskMap"))
-        )
+        switch plan.assetType {
+        case .building:
+            try writeControlMask(
+                plan,
+                to: staging.appendingPathComponent(plan.outputName(suffix: "ControlMask"))
+            )
+            try writeBuildingMaskMap(
+                plan,
+                to: staging.appendingPathComponent(plan.outputName(suffix: "MaskMap"))
+            )
+        case .surface:
+            try writeSurfaceMaskMap(
+                plan,
+                to: staging.appendingPathComponent(plan.outputName(suffix: "MaskMap"))
+            )
+        case .decal:
+            if plan.outputSuffixes.contains("ControlMask") {
+                try writeControlMask(
+                    plan,
+                    to: staging.appendingPathComponent(plan.outputName(suffix: "ControlMask"))
+                )
+            }
+            try writeBuildingMaskMap(
+                plan,
+                to: staging.appendingPathComponent(plan.outputName(suffix: "MaskMap"))
+            )
+        }
         try writeNormal(
             plan,
             to: staging.appendingPathComponent(plan.outputName(suffix: "Normal"))
         )
-        try writeEmissive(
-            plan,
-            to: staging.appendingPathComponent(plan.outputName(suffix: "Emissive"))
-        )
+        if plan.outputSuffixes.contains("Emissive") {
+            try writeEmissive(
+                plan,
+                to: staging.appendingPathComponent(plan.outputName(suffix: "Emissive"))
+            )
+        }
 
         for name in plan.outputNames {
             let staged = staging.appendingPathComponent(name)
@@ -113,6 +154,10 @@ enum TexturePacking {
     }
 
     private static func writeControlMask(_ plan: TextureExportPlan, to url: URL) throws {
+        try ImageLoader.writePNG(controlMaskRaster(plan), to: url)
+    }
+
+    static func controlMaskRaster(_ plan: TextureExportPlan) throws -> ImageRaster {
         let channels = try [.cm1, .cm2, .cm3, .snowRemove].map { slot in
             try plan.inputs[slot].map {
                 try ImageLoader.raster(from: $0.url)
@@ -124,10 +169,10 @@ enum TexturePacking {
                 output.bytes[pixel * 4 + channel] = channels[channel]?.red(at: pixel) ?? 0
             }
         }
-        try ImageLoader.writePNG(output, to: url)
+        return output
     }
 
-    private static func writeMaskMap(_ plan: TextureExportPlan, to url: URL) throws {
+    private static func writeBuildingMaskMap(_ plan: TextureExportPlan, to url: URL) throws {
         let metallic = try raster(for: .metallic, in: plan)
         let coat = try raster(for: .coat, in: plan)
         let roughness = try raster(for: .roughness, in: plan)
@@ -140,6 +185,26 @@ enum TexturePacking {
             output.bytes[index + 3] = 255 - (roughness?.red(at: pixel) ?? 255)
         }
         try ImageLoader.writePNG(output, to: url)
+    }
+
+    private static func writeSurfaceMaskMap(_ plan: TextureExportPlan, to url: URL) throws {
+        try ImageLoader.writePNG(surfaceMaskRaster(plan), to: url)
+    }
+
+    static func surfaceMaskRaster(_ plan: TextureExportPlan) throws -> ImageRaster {
+        let metallic = try raster(for: .metallic, in: plan)
+        let metallicMask = try raster(for: .metallicMask, in: plan)
+        let normalMask = try raster(for: .normalMask, in: plan)
+        let roughness = try raster(for: .roughness, in: plan)
+        var output = blank(plan.targetSize, alpha: 0)
+        for pixel in 0..<(plan.targetSize.width * plan.targetSize.height) {
+            let index = pixel * 4
+            output.bytes[index] = metallic?.red(at: pixel) ?? 0
+            output.bytes[index + 1] = metallicMask?.red(at: pixel) ?? 255
+            output.bytes[index + 2] = normalMask?.red(at: pixel) ?? 255
+            output.bytes[index + 3] = 255 - (roughness?.red(at: pixel) ?? 255)
+        }
+        return output
     }
 
     private static func writeNormal(_ plan: TextureExportPlan, to url: URL) throws {

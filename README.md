@@ -39,6 +39,26 @@ The generated folder is ignored when the source folder is scanned again.
 Existing files in the destination are listed for confirmation before they are
 replaced.
 
+## Updates
+
+CS2 Combiner checks the latest stable GitHub Release when it opens. If a newer
+version is available, an in-app banner offers **Update Now**, **View Release**,
+or **Later**. You can also use **Check for Updates…** from the app menu.
+
+The updater selects the macOS release ZIP, verifies its published GitHub
+SHA-256 digest, validates the app identity, version, and code signature, and
+then replaces and reopens the current app. The app must be in a writable folder;
+translocated copies must be moved to Applications first.
+
+## Asset profiles
+
+Choose **Building**, **Surface**, or **Decal** before importing. Building writes
+the five-map building set and supports LOD2. Surface writes its three-map tiling
+set with the Surface-specific MaskMap channels. Decal writes the three required
+BaseColor, MaskMap, and Normal files; optional ControlMask and Emissive files
+are hidden under **Experimental maps (untested)** and written only after that
+section is deliberately opened and a source slot is supplied.
+
 ## Main texture requirements
 
 BaseColor is required and must be a square 512, 1024, 2048, or 4096 pixel image.
@@ -69,6 +89,9 @@ The asset name is inferred from the BaseColor filename. For example,
 Missing optional maps use safe black, white, rough, or neutral-normal defaults.
 Normalisation occurs only in memory during export; assigned source maps are
 never modified.
+
+For Decal, MaskMap uses the same Metallic, Coat, unused-black, and inverted
+Roughness layout. Missing Normal input produces the required flat OpenGL normal.
 
 ## LOD2
 

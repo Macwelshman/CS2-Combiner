@@ -6,11 +6,13 @@ struct CS2TextureCombinerApp: App {
     @NSApplicationDelegateAdaptor(CombinerAppDelegate.self) private var appDelegate
     @StateObject private var store: TextureCombinerStore
     @StateObject private var lod2Store: LOD2Store
+    @StateObject private var updateController: AppUpdateController
 
     init() {
         let store = TextureCombinerStore()
         _store = StateObject(wrappedValue: store)
         _lod2Store = StateObject(wrappedValue: LOD2Store())
+        _updateController = StateObject(wrappedValue: AppUpdateController())
         CombinerAppDelegate.sharedStore = store
     }
 
@@ -19,6 +21,7 @@ struct CS2TextureCombinerApp: App {
             ContentView()
                 .environmentObject(store)
                 .environmentObject(lod2Store)
+                .environmentObject(updateController)
         }
         .defaultSize(width: 720, height: 790)
         .commands {
@@ -45,6 +48,11 @@ struct CS2TextureCombinerApp: App {
                 Divider()
                 Button("Clear All") { store.clear() }
                     .disabled(store.inputs.isEmpty)
+            }
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") {
+                    Task { await updateController.checkForUpdates(silent: false) }
+                }
             }
         }
     }

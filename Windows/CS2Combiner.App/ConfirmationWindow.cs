@@ -6,7 +6,12 @@ namespace CS2Combiner.App;
 
 public sealed class ConfirmationWindow : Window
 {
-    public ConfirmationWindow(string title, string message, bool showsCancel = true)
+    public ConfirmationWindow(
+        string title,
+        string message,
+        bool showsCancel = true,
+        string? confirmText = null,
+        string? cancelText = null)
     {
         Title = title;
         Width = 520;
@@ -18,9 +23,11 @@ public sealed class ConfirmationWindow : Window
 
         var confirm = new Button
         {
-            Content = showsCancel ? "Replace" : "OK",
+            Content = confirmText ?? (showsCancel ? "Replace" : "OK"),
             MinWidth = 88,
-            HorizontalAlignment = HorizontalAlignment.Right
+            HorizontalAlignment = HorizontalAlignment.Right,
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Center
         };
         confirm.Click += (_, _) => Close(true);
 
@@ -32,7 +39,13 @@ public sealed class ConfirmationWindow : Window
         };
         if (showsCancel)
         {
-            var cancel = new Button { Content = "Cancel", MinWidth = 88 };
+            var cancel = new Button
+            {
+                Content = cancelText ?? "Cancel",
+                MinWidth = 88,
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                VerticalContentAlignment = VerticalAlignment.Center
+            };
             cancel.Click += (_, _) => Close(false);
             buttons.Children.Add(cancel);
         }

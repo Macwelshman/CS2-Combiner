@@ -22,6 +22,15 @@ Accepted dimensions:
 
 BaseColor is required for a main export. All other slots are optional.
 
+Select the asset profile before importing:
+
+- **Building** writes BaseColor, ControlMask, MaskMap, Normal, and Emissive and
+  supports LOD2.
+- **Surface** writes BaseColor, its Surface-specific MaskMap, and Normal.
+- **Decal** writes the required BaseColor, MaskMap, and Normal. ControlMask and
+  Emissive are hidden under **Experimental maps (untested)** and are written
+  only after that section is deliberately opened and a source slot is supplied.
+
 ![Main texture slots](assets/cs2-combiner-guide/texture-slots.png)
 
 | Group | Inputs | Packed result |
@@ -80,7 +89,7 @@ BaseColor. Choosing another location writes directly into that selected folder.
 
 ![Export controls](assets/cs2-combiner-guide/export-controls.png)
 
-The main export writes:
+The Building main export writes:
 
 - `<asset>_BaseColor.png`
 - `<asset>_ControlMask.png`
@@ -88,12 +97,28 @@ The main export writes:
 - `<asset>_Normal.png`
 - `<asset>_Emissive.png`
 
+Surface writes BaseColor, MaskMap, and Normal. Decal writes those same three
+filenames using the Decal channel layout; it adds ControlMask or Emissive only
+when those optional inputs are assigned.
+
 Choose **Export Main**, **Export LOD2**, or **Export All**. Resolve any size
 mismatch, review existing filenames, and approve replacement only when
 intended. Complete PNGs are staged before replacing an existing set.
 
 **Export All** appears only when both a main BaseColor and at least one LOD2 set
 are assigned. With LOD2 maps alone, use **Export LOD2**.
+
+## Updates
+
+CS2 Combiner checks for a newer stable release when it opens. When one is
+available, use **Update Now** to download, verify, install, and reopen the app.
+Use **View Release** to review the release first, or **Later** to dismiss the
+notification for the current session. A manual **Check for Updates…** control
+is also available.
+
+Downloaded updates are installed only when their published GitHub SHA-256
+digest and packaged version match. The app must be running from a folder it can
+write to.
 
 ## Common Workflows
 

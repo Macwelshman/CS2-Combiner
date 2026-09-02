@@ -4,6 +4,14 @@ import UniformTypeIdentifiers
 
 @MainActor
 final class TextureCombinerStore: ObservableObject {
+    @Published var selectedAssetType: AssetType = .building {
+        didSet {
+            lastExportedURLs = []
+            status = selectedAssetType.canExport
+                ? "\(selectedAssetType.rawValue) profile selected."
+                : "\(selectedAssetType.rawValue) profile selected. Export support is coming next."
+        }
+    }
     @Published private(set) var inputs: [MapSlot: InputMap] = [:]
     @Published private(set) var status = "Drop exported maps or a folder to begin."
     @Published private(set) var isWorking = false
@@ -12,6 +20,7 @@ final class TextureCombinerStore: ObservableObject {
     @Published private(set) var baseColorHasAlpha = false
     @Published private(set) var opacityMapOverridesBaseColorAlpha = false
     @Published private(set) var normalizeNormalOnExport = false
+    @Published private(set) var decalExperimentalMapsEnabled = false
 
     var baseColor: InputMap? { inputs[.baseColor] }
     var normalInput: InputMap? { inputs[.normal] }
@@ -38,7 +47,15 @@ final class TextureCombinerStore: ObservableObject {
         )
     }
     var usesCustomOutputLocation: Bool { customExportRoot != nil }
-    var canExport: Bool { baseColor != nil && !isWorking }
+    var canExport: Bool { selectedAssetType.canExport && baseColor != nil && !isWorking }
+    var decalExperimentalOutputCount: Int {
+        guard selectedAssetType == .decal, decalExperimentalMapsEnabled else { return 0 }
+        var count = inputs.keys.contains(where: {
+            [.cm1, .cm2, .cm3, .snowRemove].contains($0)
+        }) ? 1 : 0
+        if inputs[.emissive] != nil { count += 1 }
+        return count
+    }
 
     func input(for slot: MapSlot) -> InputMap? { inputs[slot] }
 
@@ -52,19 +69,95 @@ final class TextureCombinerStore: ObservableObject {
         lastExportedURLs = []
     }
 
+    func enableExperimentalDecalMaps() {
+        guard selectedAssetType == .decal else { return }
+        decalExperimentalMapsEnabled = true
+    }
+
     func importDropped(_ urls: [URL]) {
         guard !urls.isEmpty else { return }
+        let containsFolder = urls.contains {
+            (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+        }
+        let allCandidates = MapDetector.imageURLs(in: urls)
+        let surfaceIndicators = MapDetector.surfaceOnlyMapURLs(in: allCandidates)
+        var keptBuildingAfterSurfaceWarning = false
+        let experimentalDecalCandidates = allCandidates.filter {
+            guard let slot = MapDetector.slot(for: $0) else { return false }
+            return AssetType.decal.experimentalSlots.contains(slot)
+        }
+        var ignoredExperimentalDecalMaps = false
+
+        if selectedAssetType == .building, containsFolder, !surfaceIndicators.isEmpty {
+            let names = surfaceIndicators.map(\.lastPathComponent).joined(separator: "\n")
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "Surface textures detected"
+            alert.informativeText = """
+            This folder contains Surface-only maps:
+
+            \(names)
+
+            Switch to the Surface profile before importing them?
+            """
+            alert.addButton(withTitle: "Switch to Surface")
+            alert.addButton(withTitle: "Keep Building")
+            if alert.runModal() == .alertFirstButtonReturn {
+                selectedAssetType = .surface
+            } else {
+                keptBuildingAfterSurfaceWarning = true
+            }
+        }
+
+
+        if selectedAssetType == .decal,
+           !decalExperimentalMapsEnabled,
+           !experimentalDecalCandidates.isEmpty {
+            if containsFolder {
+                let names = experimentalDecalCandidates.map(\.lastPathComponent).joined(separator: "\n")
+                let alert = NSAlert()
+                alert.alertStyle = .warning
+                alert.messageText = "Experimental decal maps detected"
+                alert.informativeText = """
+                The CS2 guide states that these decal textures are untested and may not work as expected:
+
+                \(names)
+
+                Show the experimental section and import them?
+                """
+                alert.addButton(withTitle: "Show and Import")
+                alert.addButton(withTitle: "Ignore Experimental Maps")
+                if alert.runModal() == .alertFirstButtonReturn {
+                    enableExperimentalDecalMaps()
+                } else {
+                    ignoredExperimentalDecalMaps = true
+                }
+            } else {
+                enableExperimentalDecalMaps()
+            }
+        }
+
         var assigned = 0
         var rejected: [String] = []
 
         for root in urls {
             let isDirectory = (try? root.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
-            let candidates = MapDetector.imageURLs(in: [root])
+            let candidates = containsFolder && urls.count == 1
+                ? allCandidates
+                : MapDetector.imageURLs(in: [root])
             for candidate in candidates {
                 if LOD2Store.isLOD2Candidate(candidate) {
                     continue
                 }
                 guard let slot = MapDetector.slot(for: candidate) else {
+                    continue
+                }
+                guard selectedAssetType.supportedSlots.contains(slot) else {
+                    continue
+                }
+                if selectedAssetType == .decal,
+                   selectedAssetType.experimentalSlots.contains(slot),
+                   !decalExperimentalMapsEnabled {
                     continue
                 }
                 if slot == .normal, MapDetector.isDirectXNormal(candidate) {
@@ -83,8 +176,17 @@ final class TextureCombinerStore: ObservableObject {
         }
 
         status = "Imported \(assigned) main map\(assigned == 1 ? "" : "s")."
+        if keptBuildingAfterSurfaceWarning {
+            status += " Surface-only maps were skipped because Building remains selected."
+        }
+        if ignoredExperimentalDecalMaps {
+            status += " Experimental decal maps were ignored."
+        }
         if !rejected.isEmpty {
-            status += " Skipped incompatible files: \(rejected.joined(separator: ", ")). Main maps must be square 512, 1024, 2048, or 4096 pixels."
+            status += " Skipped incompatible files: \(rejected.joined(separator: ", ")). "
+            status += selectedAssetType == .building
+                ? "Main maps must be square 512, 1024, 2048, or 4096 pixels."
+                : selectedAssetType.sizeDescription
         }
     }
 
@@ -187,19 +289,33 @@ final class TextureCombinerStore: ObservableObject {
 
     func export(additionalOutputCount: Int = 0, completion: @escaping (Bool) -> Void = { _ in }) {
         do {
-            let size = try TexturePacking.validateBaseColor(baseColor)
+            guard selectedAssetType.canExport else {
+                throw CombinerError.profileNotImplemented(selectedAssetType.rawValue)
+            }
+            let size = try TexturePacking.validateBaseColor(
+                baseColor,
+                assetType: selectedAssetType
+            )
             guard let baseColor, let outputDirectory else {
                 throw CombinerError.baseColorRequired
             }
-            try TexturePacking.validateInputSizes(inputs, targetSize: size)
+            try TexturePacking.validateInputSizes(
+                inputs,
+                targetSize: size,
+                assetType: selectedAssetType
+            )
 
+            let exportInputs = selectedAssetType == .decal && !decalExperimentalMapsEnabled
+                ? inputs.filter { !selectedAssetType.experimentalSlots.contains($0.key) }
+                : inputs
             let plan = TextureExportPlan(
-                inputs: inputs,
+                inputs: exportInputs,
                 targetSize: size,
                 outputDirectory: outputDirectory,
                 assetName: AssetNaming.inferredAssetName(from: baseColor.url),
                 opacityMapOverridesBaseColorAlpha: opacityMapOverridesBaseColorAlpha,
-                normalizeNormalOnExport: normalizeNormalOnExport
+                normalizeNormalOnExport: normalizeNormalOnExport,
+                assetType: selectedAssetType
             )
             let existing = plan.outputURLs.filter {
                 FileManager.default.fileExists(atPath: $0.path)
@@ -212,16 +328,17 @@ final class TextureCombinerStore: ObservableObject {
 
             isWorking = true
             lastExportedURLs = []
+            let mainOutputCount = plan.outputSuffixes.count
             status = additionalOutputCount > 0
                 ? "Exporting 5 main textures and \(additionalOutputCount) LOD2 texture\(additionalOutputCount == 1 ? "" : "s")…"
-                : "Packing five \(size.width) × \(size.height) PNGs…"
+                : "Packing \(mainOutputCount) \(size.width) × \(size.height) PNGs…"
             Task {
                 do {
                     let urls = try await Task.detached(priority: .userInitiated) {
                         try TexturePacking.export(plan)
                     }.value
                     self.lastExportedURLs = urls
-                    self.status = "Exported 5 main textures to \(plan.outputDirectory.lastPathComponent)."
+                    self.status = "Exported \(urls.count) \(plan.assetType.rawValue.lowercased()) textures to \(plan.outputDirectory.lastPathComponent)."
                     completion(true)
                 } catch {
                     self.status = error.localizedDescription
@@ -259,7 +376,11 @@ final class TextureCombinerStore: ObservableObject {
 
     private func assign(_ url: URL, to slot: MapSlot) throws {
         let size = try ImageLoader.dimensions(of: url)
-        try TexturePacking.validateMainInputSize(size, name: slot.title)
+        try TexturePacking.validateMainInputSize(
+            size,
+            name: slot.title,
+            assetType: selectedAssetType
+        )
         if slot == .baseColor {
             baseColorHasAlpha = try ImageLoader.hasAlphaChannel(url)
         }

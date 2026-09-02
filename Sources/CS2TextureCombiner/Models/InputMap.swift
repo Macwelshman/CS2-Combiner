@@ -62,6 +62,7 @@ struct TextureExportPlan: Sendable {
     let assetName: String
     let opacityMapOverridesBaseColorAlpha: Bool
     let normalizeNormalOnExport: Bool
+    let assetType: AssetType
 
     init(
         inputs: [MapSlot: InputMap],
@@ -69,7 +70,8 @@ struct TextureExportPlan: Sendable {
         outputDirectory: URL,
         assetName: String,
         opacityMapOverridesBaseColorAlpha: Bool = false,
-        normalizeNormalOnExport: Bool = false
+        normalizeNormalOnExport: Bool = false,
+        assetType: AssetType = .building
     ) {
         self.inputs = inputs
         self.targetSize = targetSize
@@ -77,6 +79,7 @@ struct TextureExportPlan: Sendable {
         self.assetName = assetName
         self.opacityMapOverridesBaseColorAlpha = opacityMapOverridesBaseColorAlpha
         self.normalizeNormalOnExport = normalizeNormalOnExport
+        self.assetType = assetType
     }
 
     static let outputSuffixes = [
@@ -87,8 +90,20 @@ struct TextureExportPlan: Sendable {
         "Emissive"
     ]
 
+    var outputSuffixes: [String] {
+        guard assetType == .decal else { return assetType.outputSuffixes }
+        var suffixes = assetType.outputSuffixes
+        if inputs.keys.contains(where: { [.cm1, .cm2, .cm3, .snowRemove].contains($0) }) {
+            suffixes.insert("ControlMask", at: 1)
+        }
+        if inputs[.emissive] != nil {
+            suffixes.append("Emissive")
+        }
+        return suffixes
+    }
+
     var outputNames: [String] {
-        Self.outputSuffixes.map { "\(assetName)_\($0).png" }
+        outputSuffixes.map { "\(assetName)_\($0).png" }
     }
 
     var outputURLs: [URL] {
@@ -103,6 +118,8 @@ struct TextureExportPlan: Sendable {
 enum CombinerError: LocalizedError {
     case unreadableImage(URL)
     case baseColorRequired
+    case profileNotImplemented(String)
+    case invalidProfileTextureSize(profile: String, name: String, size: PixelSize, allowed: [Int])
     case invalidMainTextureSize(name: String, size: PixelSize)
     case exportSizeMismatch(imported: PixelSize, requested: PixelSize)
     case mismatchedTextureSizes(expected: PixelSize, maps: [String])
@@ -116,6 +133,10 @@ enum CombinerError: LocalizedError {
             "Could not read image data from \(url.lastPathComponent)."
         case .baseColorRequired:
             "Add a BaseColor map before exporting."
+        case .profileNotImplemented(let profile):
+            "\(profile) export is not available yet. Choose Building to export textures."
+        case .invalidProfileTextureSize(let profile, let name, let size, let allowed):
+            "\(name) for \(profile) must be square and exactly \(allowed.map(String.init).joined(separator: ", ")) pixels. It is \(size)."
         case .invalidMainTextureSize(let name, let size):
             "\(name) must be square and exactly 512, 1024, 2048, or 4096 pixels. It is \(size)."
         case .exportSizeMismatch(let imported, let requested):

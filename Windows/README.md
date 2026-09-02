@@ -33,8 +33,8 @@ dotnet run --project Windows/CS2Combiner.App/CS2Combiner.App.csproj
 
 The script tests the packing core and creates:
 
-- `dist/windows/CS2-Combiner-0.2.4-windows-arm64.zip`
-- `dist/windows/CS2-Combiner-0.2.4-windows-x64.zip`
+- `dist/windows/CS2-Combiner-0.3.3-windows-arm64.zip`
+- `dist/windows/CS2-Combiner-0.3.3-windows-x64.zip`
 
 Use the ARM64 build natively in a Windows 11 ARM UTM virtual machine. Use the
 x64 build to verify Windows 11 ARM's x64 compatibility and for conventional
@@ -62,6 +62,9 @@ HEIC sources to PNG or TIFF before importing them.
 
 ## Behaviour preserved from macOS
 
+- Building, Surface, and Decal profiles use their distinct output sets and
+  MaskMap layouts. Decal ControlMask and Emissive outputs are hidden in an
+  explicitly enabled experimental section because the guide marks them untested.
 - BaseColor is required and main maps must be matching square 512, 1024, 2048
   or 4096 pixel images.
 - LOD2 inputs must already be 512 × 512.
@@ -73,3 +76,14 @@ HEIC sources to PNG or TIFF before importing them.
   writes directly into a manually selected folder.
 - `Export All` is shown only when main and LOD2 inputs coexist.
 - Output filenames and channel packing match the native macOS application.
+
+## Updates
+
+The Windows app checks the latest stable GitHub Release when it opens. An
+available update can be reviewed, downloaded, verified, and installed from the
+app banner. **Check for Updates…** is also available in the main window.
+
+The updater selects the package matching Windows ARM64 or Windows x64, verifies
+the published GitHub SHA-256 digest and packaged version, then restarts the app.
+It updates only files supplied by the new package and leaves unrelated files in
+the app folder untouched.

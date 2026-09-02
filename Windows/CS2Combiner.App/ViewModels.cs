@@ -33,7 +33,7 @@ public sealed class MainSlotViewModel(MainWindowViewModel owner, MapSlot slot) :
     public string ChannelDescription => Slot.ChannelDescription();
     public bool IsRequired => Slot == MapSlot.BaseColor;
     public bool IsAssigned => owner.Inputs.ContainsKey(Slot);
-    public string StatusGlyph => IsAssigned ? "✓" : "○";
+    public string StatusGlyph => IsAssigned ? "✓" : string.Empty;
     public bool HasSpecialToggle => Slot is MapSlot.Opacity or MapSlot.Normal;
     public string SpecialToggleLabel =>
         Slot == MapSlot.Opacity ? "Override BaseColor alpha" : AppSpelling.Normalize();
@@ -90,7 +90,7 @@ public sealed class Lod2SlotViewModel(Lod2SetViewModel owner, Lod2Slot slot) : O
     public Lod2Slot Slot { get; } = slot;
     public string Title => Slot.Title();
     public bool IsAssigned => owner.Inputs.ContainsKey(Slot);
-    public string StatusGlyph => IsAssigned ? "✓" : "○";
+    public string StatusGlyph => IsAssigned ? "✓" : string.Empty;
     public string ActionText => IsAssigned ? "Replace…" : "Assign…";
     public string Description => owner.Inputs.TryGetValue(Slot, out var path)
         ? $"{Path.GetFileName(path)} · {ImageCodec.Dimensions(path)}"
@@ -138,6 +138,9 @@ public sealed class MainWindowViewModel : ObservableObject
     private string? _customOutputRoot;
     private string? _customLod2OutputRoot;
     private bool _useMainOutputForLod2 = true;
+    private AssetType _selectedAssetType = AssetType.Building;
+    private bool _decalExperimentalMapsEnabled;
+    private bool _isDecalExperimentalExpanded;
 
     public MainWindowViewModel()
     {
@@ -146,21 +149,108 @@ public sealed class MainWindowViewModel : ObservableObject
             MainSlots.Add(new(this, slot));
         }
 
-        var rows = MainSlots.ToDictionary(row => row.Slot);
-        MainGroups.Add(new(this, "BaseColor",
-            [rows[MapSlot.BaseColor], rows[MapSlot.Opacity]], true));
-        MainGroups.Add(new(this, "Control Mask",
-            [rows[MapSlot.ColorMask1], rows[MapSlot.ColorMask2], rows[MapSlot.ColorMask3], rows[MapSlot.SnowRemove]]));
-        MainGroups.Add(new(this, "Mask Map",
-            [rows[MapSlot.Metallic], rows[MapSlot.Coat], rows[MapSlot.Roughness]]));
-        MainGroups.Add(new(this, "Surface",
-            [rows[MapSlot.Normal], rows[MapSlot.Emissive]]));
+        RebuildMainGroups();
+        DecalExperimentalSlots = MainSlots
+            .Where(row => AssetProfiles.DecalExperimentalSlots.Contains(row.Slot))
+            .ToArray();
     }
 
     internal Dictionary<MapSlot, InputMap> Inputs { get; } = [];
     public ObservableCollection<MainSlotViewModel> MainSlots { get; } = [];
     public ObservableCollection<MainSlotGroupViewModel> MainGroups { get; } = [];
     public ObservableCollection<Lod2SetViewModel> Lod2Sets { get; } = [];
+    public IReadOnlyList<MainSlotViewModel> DecalExperimentalSlots { get; }
+    public IReadOnlyList<AssetType> AssetTypes { get; } = AssetProfiles.AllTypes;
+
+    public AssetType SelectedAssetType
+    {
+        get => _selectedAssetType;
+        set
+        {
+            if (!Set(ref _selectedAssetType, value))
+            {
+                return;
+            }
+
+            RebuildMainGroups();
+            Status = ActiveProfile.CanExport
+                ? $"{value} profile selected."
+                : $"{value} profile selected. Export support is coming next.";
+            RefreshDerived();
+        }
+    }
+
+    public bool IsBuildingSelected
+    {
+        get => SelectedAssetType == AssetType.Building;
+        set { if (value) SelectedAssetType = AssetType.Building; }
+    }
+
+    public bool IsSurfaceSelected
+    {
+        get => SelectedAssetType == AssetType.Surface;
+        set { if (value) SelectedAssetType = AssetType.Surface; }
+    }
+
+    public bool IsDecalSelected
+    {
+        get => SelectedAssetType == AssetType.Decal;
+        set { if (value) SelectedAssetType = AssetType.Decal; }
+    }
+
+    public AssetProfile ActiveProfile => AssetProfiles.For(SelectedAssetType);
+    public string ProfileDescription => ActiveProfile.Description;
+    public string ProfileAvailability => ActiveProfile.CanExport
+        ? string.Empty
+        : "Profile prepared — export packing will be added next.";
+    public bool ShowsProfileAvailability => !ActiveProfile.CanExport;
+    public string MainTextureHeading => ActiveProfile.TextureHeading;
+    public string MainTextureSizeDescription => ActiveProfile.SizeDescription;
+    public string MainExportButtonTitle => SelectedAssetType switch
+    {
+        AssetType.Surface => "Export Surface",
+        AssetType.Decal => "Export Decal",
+        _ => "Export Main"
+    };
+    public bool SupportsLod2 => ActiveProfile.SupportsLod2;
+    public bool IsDecal => SelectedAssetType == AssetType.Decal;
+    public bool IsDecalExperimentalExpanded
+    {
+        get => _isDecalExperimentalExpanded;
+        set
+        {
+            if (Set(ref _isDecalExperimentalExpanded, value) && value)
+            {
+                _decalExperimentalMapsEnabled = true;
+                Raise(nameof(DecalExperimentalMapsEnabled));
+            }
+        }
+    }
+    public bool DecalExperimentalMapsEnabled => _decalExperimentalMapsEnabled;
+    public int DecalExperimentalOutputCount
+    {
+        get
+        {
+            if (!IsDecal || !DecalExperimentalMapsEnabled) return 0;
+            var count = Inputs.Keys.Any(AssetProfiles.DecalExperimentalSlots.Take(4).Contains) ? 1 : 0;
+            if (Inputs.ContainsKey(MapSlot.Emissive)) count++;
+            return count;
+        }
+    }
+    public string DecalExportSummary => DecalExperimentalOutputCount == 0
+        ? "3 required textures"
+        : $"3 required + {DecalExperimentalOutputCount} experimental texture{(DecalExperimentalOutputCount == 1 ? string.Empty : "s")}";
+
+    public void EnableExperimentalDecalMaps()
+    {
+        if (!IsDecal) return;
+        _decalExperimentalMapsEnabled = true;
+        IsDecalExperimentalExpanded = true;
+        Raise(nameof(DecalExperimentalMapsEnabled));
+    }
+
+    public void ReportExperimentalDecalMapsIgnored() =>
+        Status += " Experimental decal maps were ignored.";
 
     public string Status
     {
@@ -221,11 +311,11 @@ public sealed class MainWindowViewModel : ObservableObject
     public bool HasMainInputs => Inputs.Count > 0;
     public bool HasLod2Sets => Lod2Sets.Count > 0;
     public bool HasNoLod2Sets => !HasLod2Sets;
-    public bool CanExportMain => HasBaseColor && !IsWorking;
+    public bool CanExportMain => ActiveProfile.CanExport && HasBaseColor && !IsWorking;
     public bool CanExportLod2 =>
-        HasLod2Sets && !IsWorking &&
+        SupportsLod2 && HasLod2Sets && !IsWorking &&
         (UseMainOutputForLod2 ? OutputDirectory is not null : _customLod2OutputRoot is not null);
-    public bool ShowsExportAll => ExportAvailability.ShowsExportAll(HasBaseColor, HasLod2Sets);
+    public bool ShowsExportAll => SupportsLod2 && ExportAvailability.ShowsExportAll(HasBaseColor, HasLod2Sets);
     public bool UsesCustomOutput => _customOutputRoot is not null;
     public string OutputHeading => _customOutputRoot is null
         ? "Default CS2 output: CS2 Export"
@@ -253,7 +343,7 @@ public sealed class MainWindowViewModel : ObservableObject
             var isDirectory = Directory.Exists(root);
             foreach (var path in MapDetector.ImagePaths([root]))
             {
-                if (Lod2Detector.IsCandidate(path))
+                if (SupportsLod2 && Lod2Detector.IsCandidate(path))
                 {
                     if (TryImportLod2(path, rejected))
                     {
@@ -264,6 +354,16 @@ public sealed class MainWindowViewModel : ObservableObject
 
                 var slot = MapDetector.DetectSlot(path);
                 if (!slot.HasValue || slot == MapSlot.Normal && MapDetector.IsDirectXNormal(path))
+                {
+                    continue;
+                }
+                if (!ActiveProfile.SupportedSlots.Contains(slot.Value))
+                {
+                    continue;
+                }
+                if (SelectedAssetType == AssetType.Decal &&
+                    AssetProfiles.DecalExperimentalSlots.Contains(slot.Value) &&
+                    !DecalExperimentalMapsEnabled)
                 {
                     continue;
                 }
@@ -288,7 +388,7 @@ public sealed class MainWindowViewModel : ObservableObject
         Lod2Status = $"Imported {importedLod2} LOD2 map{(importedLod2 == 1 ? string.Empty : "s")}.";
         if (rejected.Count > 0)
         {
-            Status += $" Skipped incompatible files: {string.Join(", ", rejected)}. Textures are never resized.";
+            Status += $" Skipped incompatible files: {string.Join(", ", rejected)}. {ActiveProfile.SizeDescription}";
         }
         RefreshAll();
     }
@@ -301,7 +401,7 @@ public sealed class MainWindowViewModel : ObservableObject
         }
 
         var size = ImageCodec.Dimensions(path);
-        TexturePacking.ValidateMainInputSize(size, slot.Title());
+        TexturePacking.ValidateMainInputSize(size, slot.Title(), SelectedAssetType);
         if (slot == MapSlot.BaseColor)
         {
             _baseColorHasAlpha = ImageCodec.HasAlphaChannel(path);
@@ -398,11 +498,11 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         var plan = BuildMainPlan();
         IsWorking = true;
-        Status = $"Packing five {plan.TargetSize.Width} × {plan.TargetSize.Height} PNGs…";
+        Status = $"Packing {plan.OutputPaths.Count} {plan.TargetSize.Width} × {plan.TargetSize.Height} PNGs…";
         try
         {
             var outputs = await Task.Run(() => TexturePacking.Export(plan));
-            Status = $"Exported {outputs.Count} main textures to {plan.OutputDirectory}.";
+            Status = $"Exported {outputs.Count} {plan.Profile.ToString().ToLowerInvariant()} textures to {plan.OutputDirectory}.";
         }
         catch (Exception error)
         {
@@ -465,20 +565,29 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private TextureExportPlan BuildMainPlan()
     {
+        if (!ActiveProfile.CanExport)
+        {
+            throw new CombinerException($"{SelectedAssetType} export is not available yet. Choose Building to export textures.");
+        }
         if (!Inputs.TryGetValue(MapSlot.BaseColor, out var baseColor) || OutputDirectory is null)
         {
             throw new CombinerException("Add a BaseColor map before exporting.");
         }
 
-        var size = TexturePacking.ValidateBaseColor(baseColor);
-        TexturePacking.ValidateInputSizes(Inputs, size);
+        var size = TexturePacking.ValidateBaseColor(baseColor, SelectedAssetType);
+        TexturePacking.ValidateInputSizes(Inputs, size, SelectedAssetType);
+        var exportInputs = SelectedAssetType == AssetType.Decal && !DecalExperimentalMapsEnabled
+            ? Inputs.Where(pair => !AssetProfiles.DecalExperimentalSlots.Contains(pair.Key))
+                .ToDictionary(pair => pair.Key, pair => pair.Value)
+            : new Dictionary<MapSlot, InputMap>(Inputs);
         return new(
-            new Dictionary<MapSlot, InputMap>(Inputs),
+            exportInputs,
             size,
             OutputDirectory,
             AssetNaming.InferredAssetName(baseColor.Path),
             OpacityMapOverridesBaseColorAlpha,
-            NormalizeNormalOnExport);
+            NormalizeNormalOnExport,
+            SelectedAssetType);
     }
 
     private IReadOnlyList<Lod2TextureExportPlan> BuildLod2Plans()
@@ -504,6 +613,20 @@ public sealed class MainWindowViewModel : ObservableObject
         RefreshDerived();
     }
 
+    private void RebuildMainGroups()
+    {
+        var rows = MainSlots.ToDictionary(row => row.Slot);
+        MainGroups.Clear();
+        foreach (var group in ActiveProfile.Groups)
+        {
+            MainGroups.Add(new(
+                this,
+                group.Title,
+                group.Slots.Select(slot => rows[slot]),
+                group.ShowsOpacitySource));
+        }
+    }
+
     private void RefreshDerived()
     {
         Raise(nameof(HasBaseColor));
@@ -518,6 +641,22 @@ public sealed class MainWindowViewModel : ObservableObject
         Raise(nameof(OutputPath));
         Raise(nameof(OutputDirectory));
         Raise(nameof(OpacitySourceDescription));
+        Raise(nameof(ActiveProfile));
+        Raise(nameof(ProfileDescription));
+        Raise(nameof(ProfileAvailability));
+        Raise(nameof(ShowsProfileAvailability));
+        Raise(nameof(MainTextureHeading));
+        Raise(nameof(MainTextureSizeDescription));
+        Raise(nameof(MainExportButtonTitle));
+        Raise(nameof(SupportsLod2));
+        Raise(nameof(IsDecal));
+        Raise(nameof(IsBuildingSelected));
+        Raise(nameof(IsSurfaceSelected));
+        Raise(nameof(IsDecalSelected));
+        Raise(nameof(IsDecalExperimentalExpanded));
+        Raise(nameof(DecalExperimentalMapsEnabled));
+        Raise(nameof(DecalExperimentalOutputCount));
+        Raise(nameof(DecalExportSummary));
         Raise(nameof(IsWorking));
     }
 }

@@ -10,6 +10,57 @@ namespace CS2Combiner.Tests;
 public sealed class CoreTests
 {
     [Fact]
+    public void AssetProfilesKeepBuildingAsTheDefaultContract()
+    {
+        var building = AssetProfiles.For(AssetType.Building);
+        Assert.Equal(TextureExportPlan.OutputSuffixes, building.OutputSuffixes);
+        Assert.Equal([512, 1024, 2048, 4096], building.AllowedSizes);
+        Assert.True(building.SupportsLod2);
+        Assert.True(building.CanExport);
+    }
+
+    [Fact]
+    public void SurfaceAndDecalProfilesDescribeTheirDistinctContracts()
+    {
+        var surface = AssetProfiles.For(AssetType.Surface);
+        Assert.Equal(["BaseColor", "MaskMap", "Normal"], surface.OutputSuffixes);
+        Assert.Equal([512, 1024, 2048], surface.AllowedSizes);
+        Assert.Equal(
+            [MapSlot.Metallic, MapSlot.MetallicMask, MapSlot.NormalMask, MapSlot.Roughness],
+            surface.Groups.Single(group => group.Title == "Mask Map").Slots);
+        Assert.False(surface.SupportsLod2);
+        Assert.True(surface.CanExport);
+
+        var decal = AssetProfiles.For(AssetType.Decal);
+        Assert.Equal(["BaseColor", "MaskMap", "Normal"], decal.OutputSuffixes);
+        Assert.Equal([512, 1024, 2048, 4096], decal.AllowedSizes);
+        Assert.DoesNotContain(decal.Groups, group => group.Title == "Optional Maps");
+        Assert.Equal(
+            [MapSlot.ColorMask1, MapSlot.ColorMask2, MapSlot.ColorMask3, MapSlot.SnowRemove, MapSlot.Emissive],
+            AssetProfiles.DecalExperimentalSlots);
+        Assert.False(decal.SupportsLod2);
+        Assert.True(decal.CanExport);
+    }
+
+    [Fact]
+    public void UpdateVersionsCompareAndChooseArchitectureAsset()
+    {
+        Assert.True(UpdateVersions.IsNewer("v0.2.10", "0.2.4"));
+        Assert.False(UpdateVersions.IsNewer("v0.3.0", "0.3"));
+        Assert.Equal(UpdateVersions.Parse("0.3.0+build.4"), UpdateVersions.Parse("0.3.0"));
+        var release = new GitHubRelease
+        {
+            Assets =
+            [
+                new ReleaseAsset { Name = "CS2-Combiner-0.3.0-windows-arm64.zip" },
+                new ReleaseAsset { Name = "CS2-Combiner-0.3.0-windows-x64.zip" }
+            ]
+        };
+        Assert.EndsWith("windows-arm64.zip", UpdateVersions.SelectWindowsAsset(release, "arm64")?.Name);
+        Assert.EndsWith("windows-x64.zip", UpdateVersions.SelectWindowsAsset(release, "x64")?.Name);
+    }
+
+    [Fact]
     public void ExportAllRequiresMainAndLod2()
     {
         Assert.False(ExportAvailability.ShowsExportAll(false, true));
@@ -56,9 +107,28 @@ public sealed class CoreTests
         Assert.Equal(MapSlot.ColorMask2, MapDetector.DetectSlot("/tmp/wall_Color_Mask_Two.png"));
         Assert.Equal(MapSlot.ColorMask3, MapDetector.DetectSlot("/tmp/wall_colour-mask-three.png"));
         Assert.Equal(MapSlot.SnowRemove, MapDetector.DetectSlot("/tmp/wall_Snow_Remove.png"));
+        Assert.Equal(MapSlot.MetallicMask, MapDetector.DetectSlot("/tmp/wall_MetallicMask.png"));
+        Assert.Equal(MapSlot.NormalMask, MapDetector.DetectSlot("/tmp/wall_Normal_Mask.png"));
         Assert.Equal(MapSlot.Normal, MapDetector.DetectSlot("/tmp/wall_NormalGL.png"));
         Assert.True(MapDetector.IsDirectXNormal("/tmp/wall_NormalDX.png"));
         Assert.Null(MapDetector.DetectSlot("/tmp/notes.png"));
+    }
+
+    [Fact]
+    public void SurfaceOnlyMapDetectionAvoidsSharedMapFalsePositives()
+    {
+        string[] paths =
+        [
+            "/tmp/Paving_BaseColor.png",
+            "/tmp/Paving_Roughness.png",
+            "/tmp/Paving_NormalGL.png",
+            "/tmp/Paving_MetallicMask.png",
+            "/tmp/Paving_Normal_Mask.png"
+        ];
+
+        Assert.Equal(
+            ["/tmp/Paving_MetallicMask.png", "/tmp/Paving_Normal_Mask.png"],
+            MapDetector.SurfaceOnlyMapPaths(paths));
     }
 
     [Fact]
@@ -215,6 +285,127 @@ public sealed class CoreTests
         Assert.Equal([55, 66, 0, 178], FirstPixel(Path.Combine(output, "Brick_Wall_v2_MaskMap.png")));
         Assert.Equal([128, 128, 255, 255], FirstPixel(Path.Combine(output, "Brick_Wall_v2_Normal.png")));
         Assert.Equal([8, 9, 10, 255], FirstPixel(Path.Combine(output, "Brick_Wall_v2_Emissive.png")));
+    }
+
+    [Fact]
+    public void SurfaceExportsThreeCorrectlyPackedPngs()
+    {
+        using var temporary = new TemporaryFolder();
+        var output = Path.Combine(temporary.Path, "Output");
+        var size = new PixelSize(512, 512);
+        var values = new Dictionary<MapSlot, (byte Red, byte Green, byte Blue)>
+        {
+            [MapSlot.BaseColor] = (20, 40, 60),
+            [MapSlot.Opacity] = (70, 0, 0),
+            [MapSlot.Metallic] = (55, 0, 0),
+            [MapSlot.MetallicMask] = (66, 0, 0),
+            [MapSlot.NormalMask] = (77, 0, 0),
+            [MapSlot.Roughness] = (88, 0, 0)
+        };
+        var inputs = new Dictionary<MapSlot, InputMap>();
+        foreach (var (slot, color) in values)
+        {
+            var path = Path.Combine(temporary.Path, $"{slot}.png");
+            if (slot == MapSlot.BaseColor)
+            {
+                WriteRgbPng(size, color.Red, color.Green, color.Blue, path);
+            }
+            else
+            {
+                ImageCodec.WritePng(Solid(size, color.Red, color.Green, color.Blue), path);
+            }
+            inputs[slot] = new(slot, path, size);
+        }
+
+        var plan = new TextureExportPlan(inputs, size, output, "Gravel", Profile: AssetType.Surface);
+        Assert.Equal(
+            ["Gravel_BaseColor.png", "Gravel_MaskMap.png", "Gravel_Normal.png"],
+            plan.OutputNames);
+        Assert.Equal(3, TexturePacking.Export(plan).Count);
+        Assert.Equal([20, 40, 60, 70], FirstPixel(Path.Combine(output, "Gravel_BaseColor.png")));
+        Assert.Equal([55, 66, 77, 167], FirstPixel(Path.Combine(output, "Gravel_MaskMap.png")));
+        Assert.Equal([128, 128, 255, 255], FirstPixel(Path.Combine(output, "Gravel_Normal.png")));
+        Assert.False(File.Exists(Path.Combine(output, "Gravel_ControlMask.png")));
+        Assert.False(File.Exists(Path.Combine(output, "Gravel_Emissive.png")));
+    }
+
+    [Fact]
+    public void SurfaceSafeDefaultsAndSizeLimit()
+    {
+        using var temporary = new TemporaryFolder();
+        var output = Path.Combine(temporary.Path, "Output");
+        var size = new PixelSize(512, 512);
+        var basePath = Path.Combine(temporary.Path, "Sand_BaseColor.png");
+        WriteRgbPng(size, 90, 80, 70, basePath);
+        var input = new InputMap(MapSlot.BaseColor, basePath, size);
+        var plan = new TextureExportPlan(
+            new Dictionary<MapSlot, InputMap> { [MapSlot.BaseColor] = input },
+            size,
+            output,
+            "Sand",
+            Profile: AssetType.Surface);
+
+        TexturePacking.Export(plan);
+        Assert.Equal([0, 255, 255, 0], FirstPixel(Path.Combine(output, "Sand_MaskMap.png")));
+        Assert.Throws<CombinerException>(() =>
+            TexturePacking.ValidateMainInputSize(new(4096, 4096), "BaseColor", AssetType.Surface));
+    }
+
+    [Fact]
+    public void DecalExportsRequiredAndSuppliedOptionalPngs()
+    {
+        using var temporary = new TemporaryFolder();
+        var output = Path.Combine(temporary.Path, "Output");
+        var size = new PixelSize(512, 512);
+        var values = new Dictionary<MapSlot, (byte Red, byte Green, byte Blue)>
+        {
+            [MapSlot.BaseColor] = (20, 40, 60),
+            [MapSlot.Opacity] = (70, 0, 0),
+            [MapSlot.ColorMask1] = (11, 0, 0),
+            [MapSlot.Metallic] = (55, 0, 0),
+            [MapSlot.Coat] = (66, 0, 0),
+            [MapSlot.Roughness] = (77, 0, 0),
+            [MapSlot.Emissive] = (8, 9, 10)
+        };
+        var inputs = new Dictionary<MapSlot, InputMap>();
+        foreach (var (slot, value) in values)
+        {
+            var path = Path.Combine(temporary.Path, $"{slot}.png");
+            if (slot == MapSlot.BaseColor)
+            {
+                WriteRgbPng(size, value.Red, value.Green, value.Blue, path);
+            }
+            else
+            {
+                ImageCodec.WritePng(Solid(size, value.Red, value.Green, value.Blue), path);
+            }
+            inputs[slot] = new(slot, path, size);
+        }
+
+        var plan = new TextureExportPlan(
+            inputs,
+            size,
+            output,
+            "RoadMarking",
+            Profile: AssetType.Decal);
+        Assert.Equal(["BaseColor", "ControlMask", "MaskMap", "Normal", "Emissive"], plan.ActiveOutputSuffixes);
+        Assert.Equal(5, TexturePacking.Export(plan).Count);
+        Assert.Equal([20, 40, 60, 70], FirstPixel(Path.Combine(output, "RoadMarking_BaseColor.png")));
+        Assert.Equal([11, 0, 0, 0], FirstPixel(Path.Combine(output, "RoadMarking_ControlMask.png")));
+        Assert.Equal([55, 66, 0, 178], FirstPixel(Path.Combine(output, "RoadMarking_MaskMap.png")));
+        Assert.Equal([128, 128, 255, 255], FirstPixel(Path.Combine(output, "RoadMarking_Normal.png")));
+        Assert.Equal([8, 9, 10, 255], FirstPixel(Path.Combine(output, "RoadMarking_Emissive.png")));
+
+        var minimal = new TextureExportPlan(
+            new Dictionary<MapSlot, InputMap> { [MapSlot.BaseColor] = inputs[MapSlot.BaseColor] },
+            size,
+            output,
+            "MinimalDecal",
+            Profile: AssetType.Decal);
+        Assert.Equal(["BaseColor", "MaskMap", "Normal"], minimal.ActiveOutputSuffixes);
+        Assert.Equal(3, TexturePacking.Export(minimal).Count);
+        Assert.False(File.Exists(Path.Combine(output, "MinimalDecal_ControlMask.png")));
+        Assert.False(File.Exists(Path.Combine(output, "MinimalDecal_Emissive.png")));
     }
 
     [Fact]

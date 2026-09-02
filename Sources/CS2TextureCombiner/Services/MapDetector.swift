@@ -2,6 +2,7 @@ import Foundation
 import ImageIO
 
 enum MapDetector {
+    private static let surfaceOnlySlots: Set<MapSlot> = [.metallicMask, .normalMask]
     private static let supportedExtensions = Set([
         "png", "tif", "tiff", "bmp", "jpg", "jpeg", "heic"
     ])
@@ -16,6 +17,8 @@ enum MapDetector {
             (.cm1, ["controlmask1", "control1", "cm1", "colormask1", "colourmask1", "colormaskone", "colourmaskone"]),
             (.cm2, ["controlmask2", "control2", "cm2", "colormask2", "colourmask2", "colormasktwo", "colourmasktwo"]),
             (.cm3, ["controlmask3", "control3", "cm3", "colormask3", "colourmask3", "colormaskthree", "colourmaskthree"]),
+            (.metallicMask, ["metallicmask", "metalnessmask"]),
+            (.normalMask, ["normalmask", "detailmask"]),
             (.metallic, ["metallic", "metalness"]),
             (.coat, ["clearcoat", "coat"]),
             (.roughness, ["roughness", "rough"]),
@@ -31,6 +34,13 @@ enum MapDetector {
     static func isDirectXNormal(_ url: URL) -> Bool {
         let name = normalizedStem(url)
         return name.contains("directx") || name.contains("normaldx") || name.contains("dxnormal")
+    }
+
+    static func surfaceOnlyMapURLs(in urls: [URL]) -> [URL] {
+        urls.filter { url in
+            guard let slot = slot(for: url) else { return false }
+            return surfaceOnlySlots.contains(slot)
+        }
     }
 
     static func imageURLs(in droppedURLs: [URL]) -> [URL] {

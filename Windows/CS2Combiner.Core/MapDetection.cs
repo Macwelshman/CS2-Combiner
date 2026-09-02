@@ -4,6 +4,8 @@ namespace CS2Combiner.Core;
 
 public static partial class MapDetector
 {
+    private static readonly HashSet<MapSlot> SurfaceOnlySlots =
+        [MapSlot.MetallicMask, MapSlot.NormalMask];
     private static readonly HashSet<string> SupportedExtensions =
         new(StringComparer.OrdinalIgnoreCase)
         {
@@ -18,6 +20,8 @@ public static partial class MapDetector
         (MapSlot.ColorMask1, ["controlmask1", "control1", "cm1", "colormask1", "colourmask1", "colormaskone", "colourmaskone"]),
         (MapSlot.ColorMask2, ["controlmask2", "control2", "cm2", "colormask2", "colourmask2", "colormasktwo", "colourmasktwo"]),
         (MapSlot.ColorMask3, ["controlmask3", "control3", "cm3", "colormask3", "colourmask3", "colormaskthree", "colourmaskthree"]),
+        (MapSlot.MetallicMask, ["metallicmask", "metalnessmask"]),
+        (MapSlot.NormalMask, ["normalmask", "detailmask"]),
         (MapSlot.Metallic, ["metallic", "metalness"]),
         (MapSlot.Coat, ["clearcoat", "coat"]),
         (MapSlot.Roughness, ["roughness", "rough"]),
@@ -46,6 +50,10 @@ public static partial class MapDetector
                name.Contains("normaldx", StringComparison.Ordinal) ||
                name.Contains("dxnormal", StringComparison.Ordinal);
     }
+
+    public static IReadOnlyList<string> SurfaceOnlyMapPaths(IEnumerable<string> paths) =>
+        paths.Where(path => DetectSlot(path) is { } slot && SurfaceOnlySlots.Contains(slot))
+            .ToArray();
 
     public static IReadOnlyList<string> ImagePaths(IEnumerable<string> droppedPaths)
     {
@@ -116,6 +124,7 @@ public static partial class AssetNaming
         "base[ _-]*colou?r|albedo|diffuse|opacity|transparency|alpha|" +
         "control[ _-]*mask[ _-]*[123]|control[ _-]*[123]|cm[ _-]*[123]|" +
         "snow[ _-]*remove|metallic|metalness|clear[ _-]*coat|coat|" +
+        "metallic[ _-]*mask|metalness[ _-]*mask|normal[ _-]*mask|detail[ _-]*mask|" +
         "roughness|rough|normal[ _-]*gl|open[ _-]*gl[ _-]*normal|" +
         "open[ _-]*gl|normal|emissive|emission";
 

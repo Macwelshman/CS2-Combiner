@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using CS2Combiner.Core;
+using System.Diagnostics;
 
 namespace CS2Combiner.App;
 
@@ -15,6 +16,8 @@ public sealed partial class MainWindow : Window
     };
 
     private MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext!;
+    private readonly AppUpdateManager _updateManager = new();
+    private GitHubRelease? _availableRelease;
 
     public MainWindow()
     {
@@ -22,11 +25,80 @@ public sealed partial class MainWindow : Window
         DataContext = new MainWindowViewModel();
     }
 
+    private async void MainWindow_Opened(object? sender, EventArgs e) =>
+        await CheckForUpdates(silent: true);
+
+    private async void CheckForUpdates_Click(object? sender, RoutedEventArgs e) =>
+        await CheckForUpdates(silent: false);
+
+    private async Task CheckForUpdates(bool silent)
+    {
+        try
+        {
+            _availableRelease = await _updateManager.CheckAsync();
+            if (_availableRelease is null)
+            {
+                UpdateBanner.IsVisible = false;
+                if (!silent)
+                {
+                    await new ConfirmationWindow("CS2 Combiner Updates", "CS2 Combiner is up to date.", false)
+                        .ShowDialog<bool>(this);
+                }
+                return;
+            }
+            UpdateTitle.Text = $"CS2 Combiner {_availableRelease.TagName.TrimStart('v', 'V')} is available";
+            UpdateMessage.Text = "Install it now, or review the release details first.";
+            UpdateBanner.IsVisible = true;
+        }
+        catch (Exception error)
+        {
+            if (!silent)
+            {
+                await new ConfirmationWindow("CS2 Combiner Updates", error.Message, false)
+                    .ShowDialog<bool>(this);
+            }
+        }
+    }
+
+    private async void UpdateNow_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_availableRelease is null) return;
+        UpdateNowButton.IsEnabled = false;
+        UpdateNowButton.Content = "Updating…";
+        UpdateMessage.Text = "Downloading and verifying the update…";
+        try
+        {
+            await _updateManager.DownloadAndLaunchInstallerAsync(_availableRelease);
+            if (Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                desktop.Shutdown();
+            }
+        }
+        catch (Exception error)
+        {
+            UpdateNowButton.IsEnabled = true;
+            UpdateNowButton.Content = "Update Now";
+            UpdateMessage.Text = "The update could not be installed.";
+            await new ConfirmationWindow("CS2 Combiner Updates", error.Message, false)
+                .ShowDialog<bool>(this);
+        }
+    }
+
+    private void LaterUpdate_Click(object? sender, RoutedEventArgs e) => UpdateBanner.IsVisible = false;
+
+    private void ViewRelease_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_availableRelease is not null)
+        {
+            Process.Start(new ProcessStartInfo(_availableRelease.HtmlUrl) { UseShellExecute = true });
+        }
+    }
+
     private async void AddMainMaps_Click(object? sender, RoutedEventArgs e) =>
-        ImportSelected(await PickFiles(true));
+        await ImportSelected(await PickFiles(true));
 
     private async void AddLod2Maps_Click(object? sender, RoutedEventArgs e) =>
-        ImportSelected(await PickFiles(true));
+        await ImportSelected(await PickFiles(true));
 
     private async void AddFolder_Click(object? sender, RoutedEventArgs e)
     {
@@ -35,7 +107,7 @@ public sealed partial class MainWindow : Window
             Title = "Scan a folder for exported texture maps",
             AllowMultiple = false
         });
-        ImportSelected(folders.Select(item => item.Path.LocalPath));
+        await ImportSelected(folders.Select(item => item.Path.LocalPath));
     }
 
     private async void AssignMainSlot_Click(object? sender, RoutedEventArgs e)
@@ -137,18 +209,29 @@ public sealed partial class MainWindow : Window
         });
     }
 
-    private static void DropArea_DragOver(object? sender, DragEventArgs e)
+    private static bool SetDragEffects(DragEventArgs e)
     {
-        e.DragEffects = e.DataTransfer.Contains(DataFormat.File)
+        var containsFiles = e.DataTransfer.Contains(DataFormat.File);
+        e.DragEffects = containsFiles
             ? DragDropEffects.Copy
             : DragDropEffects.None;
+        return containsFiles;
     }
 
-    private void DropArea_Drop(object? sender, DragEventArgs e) =>
-        ImportSelected(e.DataTransfer.TryGetFiles()?.Select(item => item.Path.LocalPath) ?? []);
+    private void DropArea_DragOver(object? sender, DragEventArgs e) =>
+        DropAreaHighlight.IsVisible = SetDragEffects(e);
+
+    private void DropArea_DragLeave(object? sender, RoutedEventArgs e) =>
+        DropAreaHighlight.IsVisible = false;
+
+    private async void DropArea_Drop(object? sender, DragEventArgs e)
+    {
+        DropAreaHighlight.IsVisible = false;
+        await ImportSelected(e.DataTransfer.TryGetFiles()?.Select(item => item.Path.LocalPath) ?? []);
+    }
 
     private static void MainSlot_DragOver(object? sender, DragEventArgs e) =>
-        DropArea_DragOver(sender, e);
+        SetDragEffects(e);
 
     private void MainSlot_Drop(object? sender, DragEventArgs e)
     {
@@ -164,7 +247,7 @@ public sealed partial class MainWindow : Window
     }
 
     private static void Lod2Slot_DragOver(object? sender, DragEventArgs e) =>
-        DropArea_DragOver(sender, e);
+        SetDragEffects(e);
 
     private void Lod2Slot_Drop(object? sender, DragEventArgs e)
     {
@@ -202,9 +285,74 @@ public sealed partial class MainWindow : Window
         return folders.FirstOrDefault()?.Path.LocalPath;
     }
 
-    private void ImportSelected(IEnumerable<string> paths)
+    private async Task ImportSelected(IEnumerable<string> paths)
     {
-        TryAction(() => ViewModel.ImportPaths(paths));
+        var selectedPaths = paths.ToArray();
+        var containsFolder = selectedPaths.Any(Directory.Exists);
+        var ignoredExperimentalDecalMaps = false;
+        if (ViewModel.SelectedAssetType == AssetType.Building && containsFolder)
+        {
+            var candidates = MapDetector.ImagePaths(selectedPaths);
+            var surfaceIndicators = MapDetector.SurfaceOnlyMapPaths(candidates);
+            if (surfaceIndicators.Count > 0)
+            {
+                var switchToSurface = await new ConfirmationWindow(
+                    "Surface textures detected",
+                    "This folder contains Surface-only maps:\n\n" +
+                    string.Join('\n', surfaceIndicators.Select(Path.GetFileName)) +
+                    "\n\nSwitch to the Surface profile before importing them?",
+                    showsCancel: true,
+                    confirmText: "Switch to Surface",
+                    cancelText: "Keep Building")
+                    .ShowDialog<bool>(this);
+                if (switchToSurface)
+                {
+                    ViewModel.SelectedAssetType = AssetType.Surface;
+                }
+            }
+        }
+
+        if (ViewModel.SelectedAssetType == AssetType.Decal &&
+            !ViewModel.DecalExperimentalMapsEnabled)
+        {
+            var candidates = MapDetector.ImagePaths(selectedPaths);
+            var experimental = candidates.Where(path =>
+                MapDetector.DetectSlot(path) is { } slot &&
+                AssetProfiles.DecalExperimentalSlots.Contains(slot)).ToArray();
+            if (experimental.Length > 0)
+            {
+                if (containsFolder)
+                {
+                    var showAndImport = await new ConfirmationWindow(
+                        "Experimental decal maps detected",
+                        "The CS2 guide states that these decal textures are untested and may not work as expected:\n\n" +
+                        string.Join('\n', experimental.Select(Path.GetFileName)) +
+                        "\n\nShow the experimental section and import them?",
+                        showsCancel: true,
+                        confirmText: "Show and Import",
+                        cancelText: "Ignore Experimental Maps")
+                        .ShowDialog<bool>(this);
+                    if (showAndImport)
+                    {
+                        ViewModel.EnableExperimentalDecalMaps();
+                    }
+                    else
+                    {
+                        ignoredExperimentalDecalMaps = true;
+                    }
+                }
+                else
+                {
+                    ViewModel.EnableExperimentalDecalMaps();
+                }
+            }
+        }
+
+        TryAction(() => ViewModel.ImportPaths(selectedPaths));
+        if (ignoredExperimentalDecalMaps)
+        {
+            ViewModel.ReportExperimentalDecalMapsIgnored();
+        }
     }
 
     private async Task<bool> ConfirmOverwrite(IEnumerable<string> planned)

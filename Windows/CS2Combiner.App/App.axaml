@@ -22,6 +22,27 @@
       <Setter Property="Foreground" Value="White" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
+    <Style Selector="ToggleButton.assetTypeSegment">
+      <Setter Property="MinWidth" Value="92" />
+      <Setter Property="Padding" Value="14,7" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="Background" Value="{StaticResource CS2CardBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource CS2BorderBrush}" />
+      <Setter Property="BorderThickness" Value="1,1,0,1" />
+      <Setter Property="CornerRadius" Value="0" />
+    </Style>
+    <Style Selector="ToggleButton.assetTypeSegment.first">
+      <Setter Property="CornerRadius" Value="7,0,0,7" />
+    </Style>
+    <Style Selector="ToggleButton.assetTypeSegment.last">
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="0,7,7,0" />
+    </Style>
+    <Style Selector="ToggleButton.assetTypeSegment:checked">
+      <Setter Property="Background" Value="{StaticResource CS2AccentBrush}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
     <Style Selector="Border.card">
       <Setter Property="Background" Value="{StaticResource CS2CardBrush}" />
       <Setter Property="BorderBrush" Value="{StaticResource CS2BorderBrush}" />
