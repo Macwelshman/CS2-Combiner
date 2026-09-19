@@ -80,9 +80,9 @@ The live Opacity row identifies the active export source.
 - **Override BaseColor alpha** makes an assigned Opacity map take precedence.
 - With no usable source, BaseColor exports as opaque.
 
-Enable **Normalise** to correct Normal vectors to unit length while writing the
-exported Normal texture. The assigned source is never modified. Leave the
-checkbox off to preserve the imported OpenGL Normal RGB values. If Normal is
+**Normalise** is checked by default, including after clearing maps or removing
+the Normal map. It corrects Normal vectors to unit length while writing the
+exported Normal texture. The assigned source is never modified. Uncheck it to preserve the imported OpenGL Normal RGB values. If Normal is
 absent, the app creates a flat OpenGL normal output.
 
 ## Building LOD2

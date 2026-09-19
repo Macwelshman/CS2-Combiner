@@ -330,7 +330,7 @@ def opacity_normals(c, page):
     info_card(c, M + card_width + 8, 438, card_width, 78, "Opacity map", "Used when BaseColor has no alpha and an Opacity map is assigned.")
     info_card(c, M + (card_width + 8) * 2, 438, card_width, 78, "Override", "Makes the assigned Opacity map take precedence.")
     y = section_label(c, "Normalise", M, 406)
-    y = paragraph(c, "Enable Normalise to correct vectors to unit length while writing the exported Normal texture. The imported source is never modified. Leave it off to preserve the original OpenGL Normal RGB values.", M, y, W - 2 * M)
+    y = paragraph(c, "Normalise is checked by default, including after clearing maps. It corrects vectors to unit length in the exported Normal texture. The source is never modified. Uncheck it to preserve the original OpenGL Normal RGB values.", M, y, W - 2 * M)
     draw_image_view(c, ASSETS / "building-top-current.png", M, 215, W - 2 * M, 135, 0.535)
     info_card(c, M, 108, 248, 82, "Unchecked", "Writes the imported OpenGL Normal values unchanged.")
     info_card(c, 305, 108, 248, 82, "Checked", "Normalises only the pixels written to the exported Normal PNG.")
@@ -382,7 +382,7 @@ def common_workflows(c, page):
         ("Assign manually", "Drop directly on a row or use Assign / Replace when a filename is not recognised."),
         ("Use BaseColor alpha", "Leave Override BaseColor alpha off and confirm the live Opacity status."),
         ("Use an Opacity map", "Enable the override only when the assigned map should take priority."),
-        ("Normalise on export", "Enable Normalise on the Normal row. Only exported pixels are corrected."),
+        ("Normalise on export", "Normalise is checked by default on the Normal row. Only exported pixels are corrected."),
         ("Resolve a mismatch", "Match every main map to BaseColor. Surface stops at 2048; Building and Decal also allow 4096."),
         ("Use Decal experiments", "Expand the orange section deliberately. Untested outputs are written only when sources are supplied."),
         ("Keep Building outputs together", "Use Export All with the main texture folder option when main and LOD2 maps are both assigned."),

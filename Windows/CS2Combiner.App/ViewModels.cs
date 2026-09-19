@@ -133,7 +133,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private string _lod2Status = "Drop LOD2 maps or a folder to begin.";
     private bool _isWorking;
     private bool _opacityMapOverridesBaseColorAlpha;
-    private bool _normalizeNormalOnExport;
+    private bool _normalizeNormalOnExport = true;
     private bool _baseColorHasAlpha;
     private string? _customOutputRoot;
     private string? _customLod2OutputRoot;
@@ -292,7 +292,11 @@ public sealed class MainWindowViewModel : ObservableObject
     public bool NormalizeNormalOnExport
     {
         get => _normalizeNormalOnExport;
-        set => Set(ref _normalizeNormalOnExport, value && Inputs.ContainsKey(MapSlot.Normal));
+        set
+        {
+            if (Inputs.ContainsKey(MapSlot.Normal))
+                Set(ref _normalizeNormalOnExport, value);
+        }
     }
 
     public bool UseMainOutputForLod2
@@ -426,7 +430,7 @@ public sealed class MainWindowViewModel : ObservableObject
         }
         else if (slot == MapSlot.Normal)
         {
-            _normalizeNormalOnExport = false;
+            _normalizeNormalOnExport = true;
         }
         Status = $"Removed {slot.Title()}.";
         RefreshAll();
@@ -437,7 +441,7 @@ public sealed class MainWindowViewModel : ObservableObject
         Inputs.Clear();
         _baseColorHasAlpha = false;
         _opacityMapOverridesBaseColorAlpha = false;
-        _normalizeNormalOnExport = false;
+        _normalizeNormalOnExport = true;
         _customOutputRoot = null;
         Status = "Cleared all assigned main maps.";
         RefreshAll();

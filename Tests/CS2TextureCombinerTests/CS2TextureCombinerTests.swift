@@ -185,16 +185,23 @@ final class CS2TextureCombinerTests: XCTestCase {
         )
 
         let store = TextureCombinerStore()
-        store.setNormalizeNormalOnExport(true)
-        XCTAssertFalse(store.normalizeNormalOnExport)
-
-        store.assignDropped([normalURL], to: .normal)
-        XCTAssertFalse(store.normalizeNormalOnExport)
-        store.setNormalizeNormalOnExport(true)
+        XCTAssertTrue(store.normalizeNormalOnExport)
+        store.setNormalizeNormalOnExport(false)
         XCTAssertTrue(store.normalizeNormalOnExport)
 
-        store.remove(.normal)
+        store.assignDropped([normalURL], to: .normal)
+        XCTAssertTrue(store.normalizeNormalOnExport)
+        store.setNormalizeNormalOnExport(false)
         XCTAssertFalse(store.normalizeNormalOnExport)
+
+        store.remove(.normal)
+        XCTAssertTrue(store.normalizeNormalOnExport)
+        store.assignDropped([normalURL], to: .normal)
+        XCTAssertTrue(store.normalizeNormalOnExport)
+        store.setNormalizeNormalOnExport(false)
+        store.clear()
+        XCTAssertTrue(store.normalizeNormalOnExport)
+
     }
 
     @MainActor

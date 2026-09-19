@@ -19,7 +19,7 @@ final class TextureCombinerStore: ObservableObject {
     @Published private(set) var customExportRoot: URL?
     @Published private(set) var baseColorHasAlpha = false
     @Published private(set) var opacityMapOverridesBaseColorAlpha = false
-    @Published private(set) var normalizeNormalOnExport = false
+    @Published private(set) var normalizeNormalOnExport = true
     @Published private(set) var decalExperimentalMapsEnabled = false
 
     var baseColor: InputMap? { inputs[.baseColor] }
@@ -65,7 +65,8 @@ final class TextureCombinerStore: ObservableObject {
     }
 
     func setNormalizeNormalOnExport(_ enabled: Bool) {
-        normalizeNormalOnExport = enabled && normalInput != nil
+        guard normalInput != nil else { return }
+        normalizeNormalOnExport = enabled
         lastExportedURLs = []
     }
 
@@ -240,7 +241,7 @@ final class TextureCombinerStore: ObservableObject {
         } else if slot == .opacity {
             opacityMapOverridesBaseColorAlpha = false
         } else if slot == .normal {
-            normalizeNormalOnExport = false
+            normalizeNormalOnExport = true
         }
         lastExportedURLs = []
         status = "Removed \(slot.title)."
@@ -250,7 +251,7 @@ final class TextureCombinerStore: ObservableObject {
         inputs.removeAll()
         baseColorHasAlpha = false
         opacityMapOverridesBaseColorAlpha = false
-        normalizeNormalOnExport = false
+        normalizeNormalOnExport = true
         lastExportedURLs = []
         customExportRoot = nil
         status = "Cleared all assigned maps."

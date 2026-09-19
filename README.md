@@ -83,7 +83,7 @@ The asset name is inferred from the BaseColor filename. For example,
   channels packed into RGBA.
 - **MaskMap:** Metallic red, Coat red, black, and inverted Roughness red packed
   into RGBA.
-- **Normal:** OpenGL Normal RGB, optionally normalised during export.
+- **Normal:** OpenGL Normal RGB, normalised during export by default (can be unchecked).
 - **Emissive:** Emissive RGB.
 
 Missing optional maps use safe black, white, rough, or neutral-normal defaults.
