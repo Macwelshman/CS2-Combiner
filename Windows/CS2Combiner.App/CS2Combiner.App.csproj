@@ -8,7 +8,7 @@
     <ApplicationTitle>CS2 Combiner</ApplicationTitle>
     <ApplicationIcon>Assets/CS2Combiner.ico</ApplicationIcon>
     <Product>CS2 Combiner</Product>
-    <Description>Pack exported material maps into Counter-Strike 2 texture sets.</Description>
+    <Description>Pack exported material maps into Cities: Skylines II texture sets.</Description>
     <Version>0.3.4</Version>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
@@ -31,4 +31,9 @@
       Include="../../docs/assets/cs2-combiner-guide/app-icon.png"
       Link="Assets/app-icon.png" />
   </ItemGroup>
+  <Target Name="ValidateProductDescription" BeforeTargets="PrepareForBuild">
+    <Error
+      Condition="'$(Description)' != 'Pack exported material maps into Cities: Skylines II texture sets.'"
+      Text="Application Description must identify Cities: Skylines II. Update this metadata check alongside any intentional wording change." />
+  </Target>
 </Project>
