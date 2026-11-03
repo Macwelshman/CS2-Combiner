@@ -33,8 +33,8 @@ dotnet run --project Windows/CS2Combiner.App/CS2Combiner.App.csproj
 
 The script tests the packing core and creates:
 
-- `dist/windows/CS2-Combiner-0.3.4-windows-arm64.zip`
-- `dist/windows/CS2-Combiner-0.3.4-windows-x64.zip`
+- `dist/windows/CS2-Combiner-0.3.5-windows-arm64.zip`
+- `dist/windows/CS2-Combiner-0.3.5-windows-x64.zip`
 
 Use the ARM64 build natively in a Windows 11 ARM UTM virtual machine. Use the
 x64 build to verify Windows 11 ARM's x64 compatibility and for conventional
@@ -69,8 +69,8 @@ HEIC sources to PNG or TIFF before importing them.
   or 4096 pixel images.
 - LOD2 inputs must already be 512 × 512.
 - Textures are never resized or modified.
-- Embedded BaseColor alpha takes precedence unless `Override BaseColor alpha`
-  is enabled.
+- An assigned Opacity map takes precedence by default. Uncheck
+  `Override BaseColor alpha` to prefer embedded alpha when both are present.
 - Normalisation occurs only in memory while exporting.
 - Main output defaults to `CS2 Export` inside the BaseColor source folder, or
   writes directly into a manually selected folder.

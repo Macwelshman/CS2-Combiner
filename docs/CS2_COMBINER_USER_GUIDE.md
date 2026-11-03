@@ -75,9 +75,9 @@ section is deliberately opened and matching sources are supplied.
 
 The live Opacity row identifies the active export source.
 
-- Embedded BaseColor alpha normally takes precedence.
-- An Opacity map is used when BaseColor has no usable alpha.
-- **Override BaseColor alpha** makes an assigned Opacity map take precedence.
+- An assigned Opacity map takes precedence by default.
+- Uncheck **Override BaseColor alpha** to prefer embedded BaseColor alpha when both sources are present.
+- With only one opacity source, the app uses that source.
 - With no usable source, BaseColor exports as opaque.
 
 **Normalise** is checked by default, including after clearing maps or removing

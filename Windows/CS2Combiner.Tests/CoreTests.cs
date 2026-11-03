@@ -409,7 +409,7 @@ public sealed class CoreTests
     }
 
     [Fact]
-    public void EmbeddedAlphaWinsUnlessOverrideIsEnabled()
+    public void OpacityMapDefaultsToOverridingEmbeddedAlpha()
     {
         using var temporary = new TemporaryFolder();
         var output = Path.Combine(temporary.Path, "Output");
@@ -426,10 +426,10 @@ public sealed class CoreTests
 
         Assert.True(ImageCodec.HasAlphaChannel(basePath));
         TexturePacking.Export(new(inputs, size, output, "Glass"));
-        Assert.Equal([20, 40, 60, 90], FirstPixel(Path.Combine(output, "Glass_BaseColor.png")));
-
-        TexturePacking.Export(new(inputs, size, output, "Glass", true));
         Assert.Equal([20, 40, 60, 170], FirstPixel(Path.Combine(output, "Glass_BaseColor.png")));
+
+        TexturePacking.Export(new(inputs, size, output, "Glass", false));
+        Assert.Equal([20, 40, 60, 90], FirstPixel(Path.Combine(output, "Glass_BaseColor.png")));
     }
 
     [Fact]

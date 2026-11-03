@@ -69,7 +69,7 @@ struct TextureExportPlan: Sendable {
         targetSize: PixelSize,
         outputDirectory: URL,
         assetName: String,
-        opacityMapOverridesBaseColorAlpha: Bool = false,
+        opacityMapOverridesBaseColorAlpha: Bool = true,
         normalizeNormalOnExport: Bool = false,
         assetType: AssetType = .building
     ) {

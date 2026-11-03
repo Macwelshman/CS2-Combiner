@@ -152,6 +152,8 @@ final class CS2TextureCombinerTests: XCTestCase {
         XCTAssertEqual(store.opacitySource.description, "Opacity: BaseColor alpha")
 
         store.assignDropped([opacity], to: .opacity)
+        XCTAssertEqual(store.opacitySource.description, "Opacity: Opacity map · overriding BaseColor alpha")
+        store.setOpacityMapOverride(false)
         XCTAssertEqual(
             store.opacitySource.description,
             "Opacity: BaseColor alpha · Opacity map ignored"
@@ -168,7 +170,7 @@ final class CS2TextureCombinerTests: XCTestCase {
 
         store.remove(.opacity)
         XCTAssertEqual(store.opacitySource.description, "Opacity: Opaque default")
-        XCTAssertFalse(store.opacityMapOverridesBaseColorAlpha)
+        XCTAssertTrue(store.opacityMapOverridesBaseColorAlpha)
     }
 
     @MainActor
@@ -819,7 +821,7 @@ final class CS2TextureCombinerTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: experimentalOutput.appendingPathComponent("Marking_Emissive.png").path))
     }
 
-    func testEmbeddedBaseColorAlphaOverridesOpacityMap() throws {
+    func testOpacityMapDefaultsToOverridingEmbeddedAlpha() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("CS2EmbeddedAlpha-\(UUID().uuidString)", isDirectory: true)
         let output = root.appendingPathComponent("Glass CS2 textures", isDirectory: true)
@@ -853,7 +855,7 @@ final class CS2TextureCombinerTests: XCTestCase {
 
         XCTAssertEqual(
             try firstPixel(output.appendingPathComponent("Glass_BaseColor.png")),
-            [20, 40, 60, 90]
+            [20, 40, 60, 170]
         )
 
         _ = try TexturePacking.export(
@@ -865,12 +867,12 @@ final class CS2TextureCombinerTests: XCTestCase {
                 targetSize: size,
                 outputDirectory: output,
                 assetName: "Glass",
-                opacityMapOverridesBaseColorAlpha: true
+                opacityMapOverridesBaseColorAlpha: false
             )
         )
         XCTAssertEqual(
             try firstPixel(output.appendingPathComponent("Glass_BaseColor.png")),
-            [20, 40, 60, 170]
+            [20, 40, 60, 90]
         )
     }
 

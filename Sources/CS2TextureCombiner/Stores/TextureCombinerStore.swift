@@ -18,7 +18,7 @@ final class TextureCombinerStore: ObservableObject {
     @Published private(set) var lastExportedURLs: [URL] = []
     @Published private(set) var customExportRoot: URL?
     @Published private(set) var baseColorHasAlpha = false
-    @Published private(set) var opacityMapOverridesBaseColorAlpha = false
+    @Published private(set) var opacityMapOverridesBaseColorAlpha = true
     @Published private(set) var normalizeNormalOnExport = true
     @Published private(set) var decalExperimentalMapsEnabled = false
 
@@ -239,7 +239,7 @@ final class TextureCombinerStore: ObservableObject {
         if slot == .baseColor {
             baseColorHasAlpha = false
         } else if slot == .opacity {
-            opacityMapOverridesBaseColorAlpha = false
+            opacityMapOverridesBaseColorAlpha = true
         } else if slot == .normal {
             normalizeNormalOnExport = true
         }
@@ -250,7 +250,7 @@ final class TextureCombinerStore: ObservableObject {
     func clear() {
         inputs.removeAll()
         baseColorHasAlpha = false
-        opacityMapOverridesBaseColorAlpha = false
+        opacityMapOverridesBaseColorAlpha = true
         normalizeNormalOnExport = true
         lastExportedURLs = []
         customExportRoot = nil

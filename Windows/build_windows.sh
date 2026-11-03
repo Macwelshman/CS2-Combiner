@@ -7,7 +7,7 @@ repo_dir="$(cd "$script_dir/.." && pwd)"
 app_project="$script_dir/CS2Combiner.App/CS2Combiner.App.csproj"
 test_project="$script_dir/CS2Combiner.Tests/CS2Combiner.Tests.csproj"
 dist_dir="$repo_dir/dist/windows"
-version="0.3.4"
+version="0.3.5"
 
 cd "$repo_dir"
 

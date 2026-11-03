@@ -233,7 +233,7 @@ public sealed record TextureExportPlan(
     PixelSize TargetSize,
     string OutputDirectory,
     string AssetName,
-    bool OpacityMapOverridesBaseColorAlpha = false,
+    bool OpacityMapOverridesBaseColorAlpha = true,
     bool NormalizeNormalOnExport = false,
     AssetType Profile = AssetType.Building)
 {

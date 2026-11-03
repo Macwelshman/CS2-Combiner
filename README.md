@@ -76,9 +76,8 @@ The asset name is inferred from the BaseColor filename. For example,
 
 ### Packing
 
-- **BaseColor:** BaseColor RGB plus embedded alpha when present; otherwise the
-  Opacity red channel. **Override BaseColor alpha** makes an assigned Opacity
-  map take priority.
+- **BaseColor:** BaseColor RGB plus the Opacity map’s red channel when assigned.
+  Uncheck **Override BaseColor alpha** to prefer embedded alpha when both are available.
 - **ControlMask:** ColorMask1, ColorMask2, ColorMask3, and Snow Remove red
   channels packed into RGBA.
 - **MaskMap:** Metallic red, Coat red, black, and inverted Roughness red packed

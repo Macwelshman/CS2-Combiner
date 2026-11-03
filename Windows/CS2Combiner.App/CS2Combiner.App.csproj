@@ -9,7 +9,7 @@
     <ApplicationIcon>Assets/CS2Combiner.ico</ApplicationIcon>
     <Product>CS2 Combiner</Product>
     <Description>Pack exported material maps into Cities: Skylines II texture sets.</Description>
-    <Version>0.3.4</Version>
+    <Version>0.3.5</Version>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
